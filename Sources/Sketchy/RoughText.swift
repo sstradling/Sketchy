@@ -317,7 +317,8 @@ public extension RoughText {
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: Color = .white,
-        texture: StickerTexture? = nil
+        texture: StickerTexture? = nil,
+        shadow: StickerShadow? = nil
     ) -> Self {
         RoughText(
             roughView: roughView.stickerBacking(
@@ -325,7 +326,8 @@ public extension RoughText {
                 smoothness: smoothness,
                 edge: edge,
                 color: color,
-                texture: texture
+                texture: texture,
+                shadow: shadow
             ),
             textSize: textSize
         )
@@ -338,7 +340,8 @@ public extension RoughText {
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: UIColor,
-        texture: StickerTexture? = nil
+        texture: StickerTexture? = nil,
+        shadow: StickerShadow? = nil
     ) -> Self {
         RoughText(
             roughView: roughView.stickerBacking(
@@ -346,7 +349,8 @@ public extension RoughText {
                 smoothness: smoothness,
                 edge: edge,
                 color: color,
-                texture: texture
+                texture: texture,
+                shadow: shadow
             ),
             textSize: textSize
         )

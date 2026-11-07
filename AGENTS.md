@@ -2,13 +2,14 @@
 
 This file is for coding agents changing this repository. Agents generating app code that only consumes the library should read [llms.txt](llms.txt) instead.
 
-The package is iOS 17+ (`Package.swift`). Tests run on an iPhone simulator. Do not create a git tag unless a release task says so. The install line in the README is `from: "1.4.1"`. The module is `Sketchy`. Public types such as `RoughView` keep their names.
+The package is iOS 17+ (`Package.swift`). Tests run on an iPhone simulator. Do not create a git tag unless a release task says so. The install line in the README is `from: "1.4.2"`. The module is `Sketchy`. Public types such as `RoughView` keep their names.
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
 | `Sources/Sketchy/RoughView.swift` | Public builder: options, shapes, text, brushes, `.animated` |
+| `Sources/Sketchy/SketchGroup.swift` | Several drawings, one sticker sheet. `SketchPart` transforms are Sketchy's, not SwiftUI's |
 | `Sources/Sketchy/RoughText.swift` | Self-sizing text view over the same engine |
 | `Sources/Sketchy/AnimatedRoughView.swift` | Looping wobble. `pinnedFrame(_:)` is internal and is how docs capture one frame |
 | `Sources/Sketchy/Engine/Options.swift` | Defaults for roughness, fill, seed, scribble, SVG, brush |
