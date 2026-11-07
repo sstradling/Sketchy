@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `SketchGroup` draws one sticker sheet behind several `RoughView` parts. Overlapping outlines merge, holes stay open only where nothing covers them, and shapes that do not touch stay separate. A part's own `.stickerBacking` is ignored while the group backing is on. `.sketchOffset`, `.sketchScale`, `.sketchRotation`, and `.sketchTransform` place parts. SwiftUI layout modifiers are not part of the silhouette. Child SVG paths are not auto-fitted. Stroke width and backing width stay in points.
+
 ## [1.4.1] - 2026-11-06
 
 - `.stickerBacking(width:smoothness:edge:color:texture:)` on `RoughView` and `RoughText` draws an opt-in paper sheet behind the sketch. Leave it off, or set `width` to `0`, and the drawing is unchanged. `width` is the margin past the nominal stroke. The sheet extends `width + strokeWidth / 2` from the outline centerline. `smoothness` runs from `0` (follow the rough edge) to `1` (follow the input silhouette). It does not choose how corners are cut.

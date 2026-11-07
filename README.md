@@ -137,6 +137,32 @@ RoughView()
     ]))
 ```
 
+Several shapes can share that sheet. `SketchGroup` unions their outlines, then draws one backing. It is not a SwiftUI `Group`. Move a child with `.sketchOffset`, `.sketchScale`, or `.sketchRotation`. SwiftUI `.offset` and `.scaleEffect` are not part of the silhouette. SVG paths in the group keep their own coordinates.
+
+```swift
+SketchGroup {
+    RoughView()
+        .fill(Color(red: 0.20, green: 0.48, blue: 0.78))
+        .fillStyle(.solid)
+        .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+        .strokeWidth(3)
+        .seed(7)
+        .draw(Circle(x: 70, y: 80, diameter: 90))
+    SketchPart(
+        RoughView()
+            .fill(Color(red: 0.86, green: 0.36, blue: 0.28))
+            .fillStyle(.solid)
+            .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+            .strokeWidth(3)
+            .seed(7)
+            .draw(Circle(x: 70, y: 80, diameter: 64))
+    )
+    .sketchOffset(x: 46, y: 8)
+}
+.stickerBacking(width: 16, smoothness: 0.55, edge: .torn(), color: Color.white, texture: .paper(seed: 7))
+.seed(7)
+```
+
 ### Opacity
 
 `.opacityProfile` multiplies `strokeOpacity` along the outline. `.uniform` changes nothing. `.values` spaces samples evenly, `.stops` places `OpacityStop` values from 0 to 1, and `.noise` wobbles between a minimum and a maximum. The same noise seed repeats. A varying profile is painted into one mask, so overlaps do not turn dark.

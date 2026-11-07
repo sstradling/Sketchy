@@ -93,6 +93,23 @@ public struct RoughRenderCommand {
         self.maskOpacity = maskOpacity
         self.opacityMaskBlur = opacityMaskBlur
     }
+
+    /// Same command with both paths moved by `transform`. Stroke widths stay in points.
+    func applying(_ transform: CGAffineTransform) -> RoughRenderCommand {
+        RoughRenderCommand(
+            path: path.applying(transform),
+            style: style,
+            clipPath: clipPath?.applying(transform),
+            inverseClip: inverseClip,
+            cap: cap,
+            join: join,
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur
+        )
+    }
 }
 
 /// How a filled rough command covers overlapping subpaths.
@@ -132,7 +149,13 @@ public struct SwiftUIRenderer {
     ///   - options: The original options (preserves SVG-specific settings that may not be in drawing.options).
     ///   - size: The available canvas size.
     /// - Returns: A collection of `RoughRenderCommand` describing how to render the drawing.
-    public func commands(for drawing: Drawing, options: Options, in size: CGSize) -> [RoughRenderCommand] {
+    public func commands(
+        for drawing: Drawing,
+        options: Options,
+        in size: CGSize,
+        placement: CGAffineTransform? = nil,
+        fitsSVG: Bool = true
+    ) -> [RoughRenderCommand] {
         measurePerformance(RenderingSignpost.buildCommands, log: RoughPerformanceLog.rendering, metadata: "shape=\(drawing.shape)") {
             // SVG paths need scaling to fit the canvas since they have their own coordinate system.
             // Text uses shape "text": FullText has already placed the glyphs, including alignment.
@@ -144,6 +167,12 @@ public struct SwiftUIRenderer {
             var scaledSVGClipPath: SwiftPath? = nil
             
             if isSVGPath {
+                if let placement, !fitsSVG {
+                    svgTransform = placement
+                    if let svg = drawing.sets.compactMap(\.path).first {
+                        scaledSVGClipPath = SwiftPath(UIBezierPath(svgPath: svg).cgPath).applying(placement)
+                    }
+                } else {
                 svgTransform = measurePerformance(RenderingSignpost.svgTransform, log: RoughPerformanceLog.rendering) {
                     // Find the original SVG path from one of the sets
                     let svgPath = drawing.sets.compactMap { $0.path }.first
@@ -155,6 +184,7 @@ public struct SwiftUIRenderer {
                         return transform
                     }
                     return nil
+                }
                 }
             }
             
@@ -231,6 +261,9 @@ public struct SwiftUIRenderer {
                 ))
             }
             
+            if let placement, !isSVGPath {
+                return result.map { $0.applying(placement) }
+            }
             return result
         }
     }
@@ -249,6 +282,11 @@ public struct SwiftUIRenderer {
         size: CGSize
     ) {
         let commands = commands(for: drawing, options: options, in: size)
+        render(commands: commands, in: &context)
+    }
+
+    /// Draws commands that were already built, including sticker sheets.
+    func render(commands: [RoughRenderCommand], in context: inout GraphicsContext) {
         var index = 0
         while index < commands.count {
             let command = commands[index]

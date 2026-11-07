@@ -72,6 +72,41 @@ struct WhatsNewView: View {
                     }
                 }
 
+                section("Shared sticker", detail: "One sheet behind two shapes. The overlap does not grow a second halo.") {
+                    SketchGroup {
+                        RoughView()
+                            .fill(blue)
+                            .fillStyle(.solid)
+                            .stroke(ink)
+                            .strokeWidth(3)
+                            .roughness(0.7)
+                            .seed(7)
+                            .draw(Circle(x: 70, y: 78, diameter: 88))
+                        SketchPart(
+                            RoughView()
+                                .fill(Color(red: 0.86, green: 0.36, blue: 0.28))
+                                .fillStyle(.solid)
+                                .stroke(ink)
+                                .strokeWidth(3)
+                                .roughness(0.7)
+                                .seed(7)
+                                .draw(Circle(x: 70, y: 78, diameter: 60))
+                        )
+                        .sketchOffset(x: 42, y: 6)
+                    }
+                    .stickerBacking(
+                        width: 14,
+                        smoothness: 0.55,
+                        edge: .torn(StickerTear(depth: 5, length: 14, jaggedness: 0.3)),
+                        color: Color.white,
+                        texture: .paper(seed: 7)
+                    )
+                    .seed(7)
+                    .frame(width: 210, height: 170)
+                    .padding(12)
+                    .background(Color(red: 0.22, green: 0.31, blue: 0.39))
+                }
+
                 Divider()
 
                 section("Fill Padding & Offset", detail: "The outline stays put. Padding insets the fill. Offset shifts it.") {

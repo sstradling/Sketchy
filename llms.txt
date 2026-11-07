@@ -240,6 +240,8 @@ RoughView()
 
 Closed continuous contours, SVG subpaths, and glyph outlines become one filled sheet. A continuous outline that returns to its start, such as an egg or ellipse with no explicit close, is closed too. Holes stay open with the same margin. The second rough pass of a contour is not a second sheet. Lines, curves, open arcs, and `.strokeContinuity(.legacy)` edges become a ribbon of `strokeWidth + 2 * width`, not a filled cutout. A self-crossing offset falls back to a round dilation instead of a broken fill. Crayon and watercolor paint on top of the sheet. White paper needs a contrasting background.
 
+`SketchGroup` gives several `RoughView` drawings one shared sheet. It is not a SwiftUI view group. A bare `RoughView` in the builder is an identity part. `SketchPart` adds `.sketchOffset(x:y:)`, `.sketchScale(_:around:)`, `.sketchRotation(_:around:)`, and `.sketchTransform`. The group has the same `.stickerBacking` modifiers plus `.seed` for the torn edge and `.sketchTransform` for the whole composition, including the sheet. Child SVG paths are not auto-fitted. Stroke width, fill weight, and backing width stay in points when a part or the group is scaled. Overlapping exteriors merge. A hole stays only where no part covers it. Separate components stay separate and a corner touch does not bridge them. A clear fill and clear stroke is skipped. Open strokes join the union as the ribbon of that stroke. A part's own backing is ignored while the group backing is on. The union is vector geometry, not a snapshot. Wax past the nominal stroke can still leave the paper.
+
 ## Common pitfalls
 
 - A bare `.fill(.red)` does not compile when both `Color` and `UIColor` overloads are visible. Write `Color.red`.
@@ -256,3 +258,4 @@ Closed continuous contours, SVG subpaths, and glyph outlines become one filled s
 - Tapered thickness is dropped on closed contours so the join does not seam.
 - Do not edit `docs/Examples.md` by hand. Change the example catalog or `scripts/render-docs.sh`, then re-run the script.
 - `.stickerBacking` defaults to white paper. On a white background the margin is invisible. Legacy and open contours are ribbons, not filled sheets.
+- `SketchGroup` does not see SwiftUI `.offset`, `.scaleEffect`, or `.rotationEffect`. Use the `sketch` transforms. `Path(d:)` inside the group is not fitted to the view.

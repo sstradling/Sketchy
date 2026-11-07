@@ -144,6 +144,31 @@ enum StickerBackingBuilder {
         return commands
     }
 
+    /// One sheet for rings that are already in canvas space.
+    ///
+    /// `outward` is the margin past those rings. Group backing passes the
+    /// sticker width here after each part's own stroke has already been
+    /// included in the ring.
+    static func commands(
+        for lines: [Centerline],
+        outward: CGFloat,
+        backing: StickerBacking,
+        seed: UInt64?
+    ) -> [RoughRenderCommand] {
+        guard outward > 0, !lines.isEmpty else { return [] }
+        let paper = Color(backing.color)
+        let finish = paperFinish(backing, seed: seed ?? 0xA11C_E571_C4E0)
+        return closedCommands(
+            lines,
+            outward: outward,
+            finish: finish,
+            texture: backing.texture,
+            seed: seed,
+            color: paper,
+            uiColor: backing.color
+        )
+    }
+
     // MARK: - Closed sheet
 
     private struct TearSettings {
