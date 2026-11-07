@@ -2,8 +2,10 @@
 
 ## Unreleased
 
-- `StickerShadow` on `StickerBacking.shadow` drops a shadow of the cutout. `opacity`, `x`, `y`, `radius`, and `color` are adjustable. Nil, `opacity` `0`, or a shadow with no offset and no blur leaves the drawing unchanged. A `SketchGroup` casts one shadow for the shared sheet. The shadow follows the finished edge, including holes, and is not clipped to the paper fill. Offset and blur are canvas points.
-- `SketchGroup` draws one sticker sheet behind several `RoughView` parts. Overlapping outlines merge, holes stay open only where nothing covers them, and shapes that do not touch stay separate. A part's own `.stickerBacking` is ignored while the group backing is on. `.sketchOffset`, `.sketchScale`, `.sketchRotation`, and `.sketchTransform` place parts. SwiftUI layout modifiers are not part of the silhouette. Child SVG paths are not auto-fitted. Stroke width and backing width stay in points.
+## [1.4.2] - 2026-11-07
+
+- `SketchGroup` draws one sticker sheet behind several `RoughView` parts. Overlapping outlines merge, holes stay open only where nothing else covers them, and shapes that do not touch stay separate. A shared corner does not grow a bridge. A part's own `.stickerBacking` is ignored while the group backing is on. `.sketchOffset`, `.sketchScale`, `.sketchRotation`, and `.sketchTransform` place parts. SwiftUI `.offset`, `.scaleEffect`, and `.rotationEffect` are not part of the silhouette. Child SVG paths are not auto-fitted. Stroke width, fill weight, and backing width stay in points.
+- `StickerShadow` on `StickerBacking.shadow` drops one shadow of the finished cutout, on a single shape or on a `SketchGroup`. `opacity`, `x`, `y`, `radius`, and `color` are adjustable. Nil, `opacity` `0`, or a shadow with no offset and no blur leaves the drawing unchanged. The shadow follows the smooth, fully smooth, or torn edge, including holes and separate pieces. It sits behind the paper and is not clipped to the fill. Hatch lines, crayon flakes, and child edges inside a group do not cast their own. Offset and blur are canvas points. The view bounds clip the blur.
 
 ## [1.4.1] - 2026-11-06
 
