@@ -75,6 +75,7 @@ enum StickerBackingBuilder {
 
         let paper = Color(backing.color)
         let finish = paperFinish(backing, seed: options.seed ?? 0xA11C_E571_C4E0)
+        let shadow = sheetShadow(from: backing)
         var commands: [RoughRenderCommand] = []
 
         let closed = lines.filter(\.closed)
@@ -88,7 +89,8 @@ enum StickerBackingBuilder {
                 texture: backing.texture,
                 seed: options.seed,
                 color: paper,
-                uiColor: backing.color
+                uiColor: backing.color,
+                shadow: shadow
             ))
         }
 
@@ -116,13 +118,17 @@ enum StickerBackingBuilder {
                     curved: !torn,
                     continuous: continuous
                 )
-                commands.append(RoughRenderCommand(
+                var ribbonCommand = RoughRenderCommand(
                     path: center,
                     style: .stroke(paper, lineWidth: ribbon),
                     cap: .round,
                     join: torn ? .bevel : .round,
                     miterLimit: 4
-                ))
+                )
+                if let shadow {
+                    ribbonCommand = ribbonCommand.withSheetShadow(shadow)
+                }
+                commands.append(ribbonCommand)
                 if let texture = backing.texture, texture.amount > 0.01 {
                     let clip = NativeStrokeOutline.path(
                         from: center,
@@ -165,7 +171,8 @@ enum StickerBackingBuilder {
             texture: backing.texture,
             seed: seed,
             color: paper,
-            uiColor: backing.color
+            uiColor: backing.color,
+            shadow: sheetShadow(from: backing)
         )
     }
 
@@ -183,6 +190,34 @@ enum StickerBackingBuilder {
         case corners
         case continuous(CGFloat)
         case torn(TearSettings)
+    }
+
+    /// Nil when the shadow would not change an opaque sheet.
+    private static func sheetShadow(from backing: StickerBacking) -> SheetShadow? {
+        guard let shadow = backing.shadow else { return nil }
+        let opacity = min(1, max(0, shadow.opacity))
+        guard opacity > 0.004 else { return nil }
+        guard shadow.radius > 0.05 || abs(shadow.x) > 0.05 || abs(shadow.y) > 0.05 else { return nil }
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        if !shadow.color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            red = 0
+            green = 0
+            blue = 0
+            alpha = 1
+        }
+        return SheetShadow(
+            red: red,
+            green: green,
+            blue: blue,
+            alpha: alpha,
+            opacity: opacity,
+            x: shadow.x,
+            y: shadow.y,
+            radius: max(0, shadow.radius)
+        )
     }
 
     private static func paperFinish(_ backing: StickerBacking, seed: UInt64) -> PaperFinish {
@@ -211,7 +246,8 @@ enum StickerBackingBuilder {
         texture: StickerTexture?,
         seed: UInt64?,
         color: Color,
-        uiColor: UIColor
+        uiColor: UIColor,
+        shadow: SheetShadow?
     ) -> [RoughRenderCommand] {
         let rings = lines.filter { $0.points.count >= 3 }
         guard !rings.isEmpty else { return [] }
@@ -262,7 +298,14 @@ enum StickerBackingBuilder {
 
         if !failed, offsets.count == rings.count, !offsets.isEmpty {
             let paper = compoundPath(offsets, closed: true, curved: !torn, continuous: continuous)
-            return sheetCommands(paper, color: color, uiColor: uiColor, texture: texture, seed: seed)
+            return sheetCommands(
+                paper,
+                color: color,
+                uiColor: uiColor,
+                texture: texture,
+                seed: seed,
+                shadow: shadow
+            )
         }
 
         let sources = lines.map { line -> [CGPoint] in
@@ -278,16 +321,19 @@ enum StickerBackingBuilder {
             continuous: continuous
         )
         let dilation = max(outward * 2, 0.5)
-        var commands = [
-            RoughRenderCommand(path: center, style: .fill(color), fillRule: .evenOdd),
-            RoughRenderCommand(
-                path: center,
-                style: .stroke(color, lineWidth: dilation),
-                cap: .round,
-                join: .round,
-                miterLimit: 1
-            )
-        ]
+        var fill = RoughRenderCommand(path: center, style: .fill(color), fillRule: .evenOdd)
+        var stroke = RoughRenderCommand(
+            path: center,
+            style: .stroke(color, lineWidth: dilation),
+            cap: .round,
+            join: .round,
+            miterLimit: 1
+        )
+        if let shadow {
+            fill = fill.withSheetShadow(shadow)
+            stroke = stroke.withSheetShadow(shadow)
+        }
+        var commands = [fill, stroke]
         // The round stroke supplies the margin. Grain clips to the interior
         // sheet; the margin stroke stays a flat color when offset failed.
         if let texture, texture.amount > 0.01 {
@@ -307,11 +353,14 @@ enum StickerBackingBuilder {
         color: Color,
         uiColor: UIColor,
         texture: StickerTexture?,
-        seed: UInt64?
+        seed: UInt64?,
+        shadow: SheetShadow?
     ) -> [RoughRenderCommand] {
-        var commands = [
-            RoughRenderCommand(path: paper, style: .fill(color), fillRule: .evenOdd)
-        ]
+        var fill = RoughRenderCommand(path: paper, style: .fill(color), fillRule: .evenOdd)
+        if let shadow {
+            fill = fill.withSheetShadow(shadow)
+        }
+        var commands = [fill]
         if let texture, texture.amount > 0.01 {
             commands.append(contentsOf: textureCommands(
                 clip: paper,

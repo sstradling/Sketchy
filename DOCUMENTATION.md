@@ -275,7 +275,8 @@ func stickerBacking(
     smoothness: CGFloat = 0,
     edge: StickerEdge = .smooth,
     color: Color = .white,
-    texture: StickerTexture? = nil
+    texture: StickerTexture? = nil,
+    shadow: StickerShadow? = nil
 ) -> Self
 
 func stickerBacking(
@@ -283,7 +284,8 @@ func stickerBacking(
     smoothness: CGFloat = 0,
     edge: StickerEdge = .smooth,
     color: UIColor,
-    texture: StickerTexture? = nil
+    texture: StickerTexture? = nil,
+    shadow: StickerShadow? = nil
 ) -> Self
 ```
 
@@ -1086,6 +1088,7 @@ Color alone, grain on white, or both:
 .stickerBacking(width: 14, texture: .paper())
 .stickerBacking(width: 14, color: UIColor(red: 0.96, green: 0.93, blue: 0.84, alpha: 1), texture: .paper(seed: 42))
 .stickerBacking(width: 22, smoothness: 1, edge: .fullySmooth())
+.stickerBacking(width: 16, shadow: StickerShadow(opacity: 0.35, x: 0, y: 10, radius: 8, color: Color.black))
 ```
 
 ### StickerBacking
@@ -1097,8 +1100,36 @@ Color alone, grain on white, or both:
 | `edge` | `.smooth` | `.smooth` keeps corners. `.fullySmooth()` rounds the whole edge. `.torn(StickerTear())` chops it |
 | `color` | white | `UIColor`, or `Color` on the view modifier. Alpha is honored |
 | `texture` | `nil` | `StickerTexture` fibers inside the sheet. `nil` is flat color |
+| `shadow` | `nil` | `StickerShadow` of the finished sheet. `nil` draws none |
 
 `width` is the paper visible beyond the ink. The sheet extends `width + strokeWidth / 2` from the outline centerline. Torn chops use `Options.seed` and do not advance the sketch's random sequence. A `nil` seed uses a fixed tear seed. Grain uses `StickerTexture.seed`, then `Options.seed`, then a fixed seed. It does not advance the sketch sequence either.
+
+### StickerShadow
+
+One drop shadow of the solid sheet. It is not a SwiftUI `.shadow` on the view, so hatch gaps, crayon flakes, and glyph counters do not each cast a shadow. The blur follows the alpha of the finished cutout, including a torn or fully smooth edge, holes, and separate pieces. The shadow sits behind the paper and is not clipped to the fill. Fibers are painted after it.
+
+```swift
+.stickerBacking(
+    width: 16,
+    smoothness: 0.55,
+    edge: .torn(),
+    color: Color.white,
+    texture: .paper(seed: 7),
+    shadow: StickerShadow(opacity: 0.35, x: 0, y: 10, radius: 12, color: Color.black)
+)
+```
+
+`StickerBacking.shadow(_:)` and `.shadow(opacity:x:y:radius:color:)` set the same value on an existing backing. `SketchGroup` takes the same `shadow` argument. A group casts one shadow for the shared sheet. A part's own shadow is ignored while that group backing is on.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `opacity` | `0.35` | Strength, `0...1`. `0` draws nothing |
+| `x` | `0` | Points to the right. Negative moves left |
+| `y` | `8` | Points down. Negative moves up |
+| `radius` | `8` | Blur in points. `0` is a hard edge |
+| `color` | black | `UIColor`, or `Color` on the second initializer. Alpha multiplies `opacity` |
+
+`x`, `y`, and `radius` are points in the canvas after `sketchTransform`. `sketchScale` does not multiply them. A SwiftUI scale on the whole view scales the rendered shadow with the sheet. A shadow with `opacity` `0`, or with no offset and no blur, is skipped. The canvas clips the blur, so inset the drawing by about `abs(x)`, `abs(y)`, and `radius * 2`, or the shadow is cut off. Paper alpha shows the shadow through the sheet. Grain does not.
 
 ### StickerTexture
 
@@ -1177,7 +1208,7 @@ Child SVG paths are not fitted one-by-one into the view. A `Path(d:)` keeps the 
 
 The union is vector geometry. Each closed outline is offset by half that part's stroke (a hole shrinks, an exterior grows). Open strokes become the filled ribbon of that stroke. The rings are split where they cross, and an edge is kept only where one side is ink and the other is not. Overlaps become one exterior. A hole remains only where no part covers it. Shapes that do not touch stay separate. A shared corner does not grow a bridge. A part with fill and stroke both effectively clear is skipped. A fill-only or stroke-only part is included.
 
-While the group backing has a width above 0, a part's own `.stickerBacking` is not drawn. Set the group backing to nil and each part is an ordinary `RoughView` again, including its own paper. `.seed` on the group repeats the torn edge. Nil uses the first part's `Options.seed`, then a fixed seed. Grain still follows `StickerTexture.seed`, then that same seed.
+While the group backing has a width above 0, a part's own `.stickerBacking` is not drawn. Set the group backing to nil and each part is an ordinary `RoughView` again, including its own paper. `.seed` on the group repeats the torn edge. Nil uses the first part's `Options.seed`, then a fixed seed. Grain still follows `StickerTexture.seed`, then that same seed. `shadow` on the group backing is one shadow for that shared sheet. It follows the merged outline, so a child edge inside the union does not cast its own.
 
 Roughness and crayon grit can extend past the nominal stroke. The sheet does not chase every flake. Increase `width` when the wax should stay on the paper. The union walks every outline edge against every other edge, so a group of very dense paths costs more than one shape. It does not rasterize the views.
 
@@ -1582,6 +1613,7 @@ Engine.shared.clearCaches()
 5. Crayon grit and watercolor fringe extend past `strokeWidth`. Increase `width` if that texture should stay on the sheet.
 6. A stack of `RoughView`s gives each shape its own sheet. Use `SketchGroup` when several shapes should share one cutout. SwiftUI `.offset`, `.scaleEffect`, and `.rotationEffect` are not part of that silhouette. Use `.sketchOffset`, `.sketchScale`, and `.sketchRotation`.
 7. Inside a `SketchGroup`, `Path(d:)` is not auto-fitted to the view. Place it with `.sketchTransform`.
+8. A sticker shadow is clipped by the view bounds. Leave padding of about `abs(offset) + radius * 2`. `opacity` `0` draws no shadow.
 
 ### Issue: Drawing Changes Every Redraw
 

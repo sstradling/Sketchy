@@ -99,11 +99,12 @@ struct WhatsNewView: View {
                         smoothness: 0.55,
                         edge: .torn(StickerTear(depth: 5, length: 14, jaggedness: 0.3)),
                         color: Color.white,
-                        texture: .paper(seed: 7)
+                        texture: .paper(seed: 7),
+                        shadow: StickerShadow(opacity: 0.35, x: 0, y: 8, radius: 8, color: Color.black)
                     )
                     .seed(7)
                     .frame(width: 210, height: 170)
-                    .padding(12)
+                    .padding(28)
                     .background(Color(red: 0.22, green: 0.31, blue: 0.39))
                 }
 

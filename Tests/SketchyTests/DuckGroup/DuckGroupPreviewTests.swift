@@ -36,6 +36,32 @@ final class DuckGroupPreviewTests: XCTestCase {
             name: "duck-group-compare.png",
             to: directory
         )
+
+        let shadowMargin: CGFloat = 120
+        let shadowSize = DuckGroupFixture.canvasSize(cardMargin: shadowMargin)
+        let none = try DuckGroupFixture.group(backing: Self.tornSheet(nil), cardMargin: shadowMargin)
+        let close = try DuckGroupFixture.group(backing: Self.tornSheet(Self.closeShadow), cardMargin: shadowMargin)
+        let raised = try DuckGroupFixture.group(backing: Self.tornSheet(Self.raisedShadow), cardMargin: shadowMargin)
+        let left = try DuckGroupFixture.group(backing: Self.tornSheet(Self.leftShadow), cardMargin: shadowMargin)
+        try write(
+            lightCard("Duck cutout shadow. One sheet, four lights.") {
+                HStack(alignment: .top, spacing: 36) {
+                    shadowColumn("No shadow", duck(none, size: shadowSize))
+                    shadowColumn("Close\nopacity 0.30    x 0    y 6    radius 4", duck(close, size: shadowSize))
+                    shadowColumn("Raised\nopacity 0.42    x 0    y 22    radius 18", duck(raised, size: shadowSize))
+                    shadowColumn("From the left\nopacity 0.40    x -18    y 10    radius 12", duck(left, size: shadowSize))
+                }
+            },
+            name: "duck-shadow-compare.png",
+            to: directory
+        )
+        try write(
+            lightCard("Holed cutout. opacity 0.40    x 18    y 16    radius 12. Hachure angle 0.") {
+                holeCutout
+            },
+            name: "sticker-shadow-hole.png",
+            to: directory
+        )
     }
 
     func testDuckSilhouetteIsOneSheetWithoutInternalHoles() throws {
@@ -94,6 +120,66 @@ final class DuckGroupPreviewTests: XCTestCase {
             previous = index
         }
         return inside
+    }
+
+    private static func tornSheet(_ shadow: StickerShadow?) -> StickerBacking {
+        let backing = StickerBacking(
+            width: 22,
+            smoothness: 0.5,
+            edge: .torn(StickerTear(depth: 7, length: 22, jaggedness: 0.26)),
+            color: UIColor.white,
+            texture: .paper(amount: 0.45, scale: 11, seed: 17),
+            shadow: shadow
+        )
+        return backing
+    }
+
+    private static let closeShadow = StickerShadow(opacity: 0.30, x: 0, y: 6, radius: 4, color: UIColor.black)
+    private static let raisedShadow = StickerShadow(opacity: 0.42, x: 0, y: 22, radius: 18, color: UIColor.black)
+    private static let leftShadow = StickerShadow(opacity: 0.40, x: -18, y: 10, radius: 12, color: UIColor.black)
+
+    private var holeCutout: some View {
+        SketchGroup {
+            RoughView()
+                .roughness(0.35)
+                .bowing(0)
+                .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+                .strokeWidth(3)
+                .fill(Color(red: 0.20, green: 0.45, blue: 0.72))
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(6)
+                .seed(7)
+                .draw(Path(d: "M40 36 H280 V230 H40 Z M110 86 H210 V176 H110 Z"))
+        }
+        .stickerBacking(
+            width: 16,
+            smoothness: 0.65,
+            color: Color.white,
+            shadow: StickerShadow(opacity: 0.40, x: 18, y: 16, radius: 12, color: Color.black)
+        )
+        .frame(width: 420, height: 360)
+    }
+
+    private func shadowColumn<V: View>(_ title: String, _ content: V) -> some View {
+        VStack(spacing: 16) {
+            content
+            Text(title)
+                .font(.system(size: 22, weight: .semibold))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color(red: 0.16, green: 0.15, blue: 0.13))
+        }
+    }
+
+    private func lightCard<V: View>(_ title: String, @ViewBuilder content: () -> V) -> some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Text(title)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(Color(red: 0.16, green: 0.15, blue: 0.13))
+            content()
+        }
+        .padding(48)
+        .background(Color(red: 0.90, green: 0.87, blue: 0.80))
     }
 
     private static let torn = StickerBacking(

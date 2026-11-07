@@ -140,14 +140,16 @@ public struct SketchGroup: View {
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: Color = .white,
-        texture: StickerTexture? = nil
+        texture: StickerTexture? = nil,
+        shadow: StickerShadow? = nil
     ) -> SketchGroup {
         stickerBacking(StickerBacking(
             width: width,
             smoothness: smoothness,
             edge: edge,
             color: UIColor(color),
-            texture: texture
+            texture: texture,
+            shadow: shadow
         ))
     }
 
@@ -157,14 +159,16 @@ public struct SketchGroup: View {
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: UIColor,
-        texture: StickerTexture? = nil
+        texture: StickerTexture? = nil,
+        shadow: StickerShadow? = nil
     ) -> SketchGroup {
         stickerBacking(StickerBacking(
             width: width,
             smoothness: smoothness,
             edge: edge,
             color: color,
-            texture: texture
+            texture: texture,
+            shadow: shadow
         ))
     }
 
@@ -177,8 +181,8 @@ public struct SketchGroup: View {
 
     /// Moves and scales the whole composition, including the sheet.
     ///
-    /// Stroke widths and the backing width stay in points. They are not
-    /// multiplied by the scale.
+    /// Stroke widths, the backing width, and a sticker shadow's offset and
+    /// blur stay in points. They are not multiplied by the scale.
     public func sketchTransform(_ transform: CGAffineTransform) -> SketchGroup {
         var copy = self
         copy.transform = self.transform.concatenating(transform)

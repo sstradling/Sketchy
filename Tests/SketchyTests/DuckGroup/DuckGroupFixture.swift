@@ -39,7 +39,21 @@ enum DuckGroupFixture {
         return fit.concatenating(CGAffineTransform(translationX: margin, y: margin))
     }
 
-    static func parts() throws -> [SketchPart] {
+    static func canvasSize(cardMargin: CGFloat) -> CGSize {
+        CGSize(width: artSize.width + cardMargin * 2, height: artSize.height + cardMargin * 2)
+    }
+
+    static func placement(cardMargin: CGFloat) -> CGAffineTransform {
+        let fitted = viewBox.insetBy(dx: -pad, dy: -pad)
+        let fit = CGAffineTransform(
+            a: scale, b: 0, c: 0, d: scale,
+            tx: -fitted.minX * scale,
+            ty: -fitted.minY * scale
+        )
+        return fit.concatenating(CGAffineTransform(translationX: cardMargin, y: cardMargin))
+    }
+
+    static func parts(cardMargin: CGFloat = margin) throws -> [SketchPart] {
         guard let url = Bundle.module.url(
             forResource: "seth-input-v3",
             withExtension: "svg",
@@ -55,13 +69,13 @@ enum DuckGroupFixture {
             var view = RoughView()
             view.options = options(for: name)
             view.drawables = [Path(d: shape.d)]
-            parts.append(SketchPart(view).sketchTransform(shape.ctm.concatenating(placement)))
+            parts.append(SketchPart(view).sketchTransform(shape.ctm.concatenating(placement(cardMargin: cardMargin))))
         }
         return parts
     }
 
-    static func group(backing: StickerBacking?) throws -> SketchGroup {
-        let built = try parts()
+    static func group(backing: StickerBacking?, cardMargin: CGFloat = margin) throws -> SketchGroup {
+        let built = try parts(cardMargin: cardMargin)
         var group = SketchGroup { built }
         if let backing {
             group = group.stickerBacking(backing).seed(seed)

@@ -60,6 +60,12 @@ public struct RoughRenderCommand {
     /// Blur radius, in points, applied to this mask before it is tinted. `0` is sharp.
     public let opacityMaskBlur: CGFloat
 
+    /// Set on the solid sheet commands that share one drop shadow.
+    ///
+    /// Texture commands leave this nil, so grain does not cast a second shadow.
+    /// Consecutive commands with the same value are painted in one layer.
+    var sheetShadow: SheetShadow?
+
     /// Description of stroke or fill styling.
     public enum Style {
         /// Stroke path with a color and line width.
@@ -81,6 +87,36 @@ public struct RoughRenderCommand {
         maskOpacity: CGFloat = 1,
         opacityMaskBlur: CGFloat = 0
     ) {
+        self.init(
+            path: path,
+            style: style,
+            clipPath: clipPath,
+            inverseClip: inverseClip,
+            cap: cap,
+            join: join,
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            sheetShadow: nil
+        )
+    }
+
+    init(
+        path: SwiftUI.Path,
+        style: Style,
+        clipPath: SwiftUI.Path?,
+        inverseClip: Bool,
+        cap: BrushCap,
+        join: BrushJoin,
+        miterLimit: CGFloat,
+        fillRule: RoughFillRule,
+        opacityMaskGroup: Int?,
+        maskOpacity: CGFloat,
+        opacityMaskBlur: CGFloat,
+        sheetShadow: SheetShadow?
+    ) {
         self.path = path
         self.style = style
         self.clipPath = clipPath
@@ -92,6 +128,24 @@ public struct RoughRenderCommand {
         self.opacityMaskGroup = opacityMaskGroup
         self.maskOpacity = maskOpacity
         self.opacityMaskBlur = opacityMaskBlur
+        self.sheetShadow = sheetShadow
+    }
+
+    func withSheetShadow(_ shadow: SheetShadow) -> RoughRenderCommand {
+        RoughRenderCommand(
+            path: path,
+            style: style,
+            clipPath: clipPath,
+            inverseClip: inverseClip,
+            cap: cap,
+            join: join,
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            sheetShadow: shadow
+        )
     }
 
     /// Same command with both paths moved by `transform`. Stroke widths stay in points.
@@ -107,9 +161,22 @@ public struct RoughRenderCommand {
             fillRule: fillRule,
             opacityMaskGroup: opacityMaskGroup,
             maskOpacity: maskOpacity,
-            opacityMaskBlur: opacityMaskBlur
+            opacityMaskBlur: opacityMaskBlur,
+            sheetShadow: sheetShadow
         )
     }
+}
+
+/// One drop shadow shared by the solid commands of a sticker sheet.
+struct SheetShadow: Equatable {
+    var red: CGFloat
+    var green: CGFloat
+    var blue: CGFloat
+    var alpha: CGFloat
+    var opacity: CGFloat
+    var x: CGFloat
+    var y: CGFloat
+    var radius: CGFloat
 }
 
 /// How a filled rough command covers overlapping subpaths.
@@ -290,6 +357,15 @@ public struct SwiftUIRenderer {
         var index = 0
         while index < commands.count {
             let command = commands[index]
+            if command.sheetShadow != nil {
+                var end = index + 1
+                while end < commands.count && commands[end].sheetShadow == command.sheetShadow {
+                    end += 1
+                }
+                renderSheetShadow(commands[index..<end], in: &context)
+                index = end
+                continue
+            }
             if command.opacityMaskGroup != nil {
                 var end = index + 1
                 while end < commands.count && commands[end].opacityMaskGroup == command.opacityMaskGroup {
@@ -314,6 +390,32 @@ public struct SwiftUIRenderer {
                 renderCommand(command, in: &context)
             }
             index += 1
+        }
+    }
+
+    /// Paints the solid sheet once, with one drop shadow behind it.
+    ///
+    /// The filter follows the alpha of that drawing, so an even-odd hole stays
+    /// a hole in the shadow. Grain is not in this run. The shadow is not
+    /// clipped to the paper; the canvas bounds still clip the layer.
+    private func renderSheetShadow(_ commands: ArraySlice<RoughRenderCommand>, in context: inout GraphicsContext) {
+        guard let shadow = commands.first?.sheetShadow else { return }
+        context.drawLayer { layer in
+            layer.addFilter(.shadow(
+                color: Color(
+                    .sRGB,
+                    red: Double(shadow.red),
+                    green: Double(shadow.green),
+                    blue: Double(shadow.blue),
+                    opacity: Double(min(1, max(0, shadow.alpha * shadow.opacity)))
+                ),
+                radius: max(0, shadow.radius),
+                x: shadow.x,
+                y: shadow.y
+            ))
+            for command in commands {
+                renderCommand(command, in: &layer)
+            }
         }
     }
 

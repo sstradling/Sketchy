@@ -159,9 +159,18 @@ SketchGroup {
     )
     .sketchOffset(x: 46, y: 8)
 }
-.stickerBacking(width: 16, smoothness: 0.55, edge: .torn(), color: Color.white, texture: .paper(seed: 7))
+.stickerBacking(
+    width: 16,
+    smoothness: 0.55,
+    edge: .torn(),
+    color: Color.white,
+    texture: .paper(seed: 7),
+    shadow: StickerShadow(opacity: 0.35, x: 0, y: 10, radius: 12, color: Color.black)
+)
 .seed(7)
 ```
+
+`shadow` is optional. Nil, or `opacity` `0`, leaves the sheet unchanged. The shadow follows the cutout, including a group outline and holes. It does not follow hatch gaps or crayon flakes. `x`, `y`, and `radius` are points. Give the frame padding or the blur is clipped.
 
 ### Opacity
 
