@@ -277,7 +277,8 @@ func stickerBacking(
     edge: StickerEdge = .smooth,
     color: Color = .white,
     texture: StickerTexture? = nil,
-    image: StickerImage? = nil
+    image: StickerImage? = nil,
+    shadow: StickerShadow? = nil
 ) -> Self
 
 func stickerBacking(
@@ -286,11 +287,40 @@ func stickerBacking(
     edge: StickerEdge = .smooth,
     color: UIColor,
     texture: StickerTexture? = nil,
-    image: StickerImage? = nil
+    image: StickerImage? = nil,
+    shadow: StickerShadow? = nil
 ) -> Self
 ```
 
 `RoughText` has the same methods. `nil` or a width of `0` draws nothing. The SwiftUI overload defaults to white with no grain. The `UIColor` overload requires `color`, so `color: .white` is not ambiguous: write `Color.white` or `UIColor.white`. See [Sticker Backing](#sticker-backing).
+
+### SketchGroup
+
+```swift
+SketchGroup {
+    RoughView()
+        .fill(Color(red: 0.20, green: 0.48, blue: 0.78))
+        .fillStyle(.solid)
+        .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+        .strokeWidth(3)
+        .seed(7)
+        .draw(Circle(x: 70, y: 80, diameter: 90))
+    SketchPart(
+        RoughView()
+            .fill(Color(red: 0.86, green: 0.36, blue: 0.28))
+            .fillStyle(.solid)
+            .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+            .strokeWidth(3)
+            .seed(7)
+            .draw(Circle(x: 70, y: 80, diameter: 64))
+    )
+    .sketchOffset(x: 46, y: 8)
+}
+.stickerBacking(width: 16, smoothness: 0.55, edge: .torn(), color: Color.white, texture: .paper(seed: 7))
+.seed(7)
+```
+
+`SketchGroup` is a drawing group, not a group of arbitrary SwiftUI views. Each child is a `RoughView` or a `SketchPart`. `.sketchOffset`, `.sketchScale`, `.sketchRotation`, and `.sketchTransform` move that part. `.seed` on the group repeats the torn edge. A part's own `.stickerBacking` is ignored while the group backing is on.
 
 ### Animation Modifier
 
@@ -1061,6 +1091,7 @@ Color alone, grain on white, or both:
 .stickerBacking(width: 14, texture: .paper())
 .stickerBacking(width: 14, color: UIColor(red: 0.96, green: 0.93, blue: 0.84, alpha: 1), texture: .paper(seed: 42))
 .stickerBacking(width: 22, smoothness: 1, edge: .fullySmooth())
+.stickerBacking(width: 16, shadow: StickerShadow(opacity: 0.35, x: 0, y: 10, radius: 8, color: Color.black))
 ```
 
 ### StickerBacking
@@ -1073,8 +1104,36 @@ Color alone, grain on white, or both:
 | `color` | white | `UIColor`, or `Color` on the view modifier. Alpha is honored |
 | `texture` | `nil` | `StickerTexture` fibers inside the sheet. `nil` draws no fibers |
 | `image` | `nil` | `StickerImage` masked by the sheet. `nil` leaves the color and fibers |
+| `shadow` | `nil` | `StickerShadow` of the finished sheet. `nil` draws none |
 
 `width` is the paper visible beyond the ink. The sheet extends `width + strokeWidth / 2` from the outline centerline. Torn chops use `Options.seed` and do not advance the sketch's random sequence. A `nil` seed uses a fixed tear seed. Grain uses `StickerTexture.seed`, then `Options.seed`, then a fixed seed. It does not advance the sketch sequence either.
+
+### StickerShadow
+
+One drop shadow of the solid sheet. It is not a SwiftUI `.shadow` on the view, so hatch gaps, crayon flakes, and glyph counters do not each cast a shadow. The blur follows the alpha of the finished cutout, including a torn or fully smooth edge, holes, and separate pieces. The shadow sits behind the paper and is not clipped to the fill. Fibers are painted after it.
+
+```swift
+.stickerBacking(
+    width: 16,
+    smoothness: 0.55,
+    edge: .torn(),
+    color: Color.white,
+    texture: .paper(seed: 7),
+    shadow: StickerShadow(opacity: 0.35, x: 0, y: 10, radius: 12, color: Color.black)
+)
+```
+
+`StickerBacking.shadow(_:)` and `.shadow(opacity:x:y:radius:color:)` set the same value on an existing backing. `SketchGroup` takes the same `shadow` argument. A group casts one shadow for the shared sheet. A part's own shadow is ignored while that group backing is on.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `opacity` | `0.35` | Strength, `0...1`. `0` draws nothing |
+| `x` | `0` | Points to the right. Negative moves left |
+| `y` | `8` | Points down. Negative moves up |
+| `radius` | `8` | Blur in points. `0` is a hard edge |
+| `color` | black | `UIColor`, or `Color` on the second initializer. Alpha multiplies `opacity` |
+
+`x`, `y`, and `radius` are points in the canvas after `sketchTransform`. `sketchScale` does not multiply them. A SwiftUI scale on the whole view scales the rendered shadow with the sheet. A shadow with `opacity` `0`, or with no offset and no blur, is skipped. The canvas clips the blur, so inset the drawing by about `abs(x)`, `abs(y)`, and `radius * 2`, or the shadow is cut off. Paper alpha shows the shadow through the sheet. Grain does not.
 
 ### StickerTexture
 
@@ -1097,18 +1156,24 @@ Pass a decoded `UIImage`. Sketchy does not fetch a URL. `StickerImage(data:)` de
 | `scale` | `0` | Tile: repeat width in points. `0` uses the image point size. Minimum 4. Stretch and fill: multiplier of the fitted size. `0` means 1 |
 | `opacity` | `1` | `0...1`. The paper `color` shows through |
 
-The color is painted first. Transparent image pixels and an opacity below 1 reveal it. Fibers, when also set, draw on top of the image. The same mask is used for `.smooth`, `.fullySmooth`, and `.torn`, and for holes. A sheet that would need more than about 900 tiles is given a coarser repeat. When the offset falls back to a round dilation, the image covers the interior and the stroke margin and is kept out of hole interiors. Fibers on that fallback still clip to the interior only.
+The color is painted first. Transparent image pixels and an opacity below 1 reveal it. Fibers, when also set, draw on top of the image. The same mask is used for `.smooth`, `.fullySmooth`, and `.torn`, for holes, and for a `SketchGroup` sheet. The image is painted after `StickerShadow`, so the picture does not cast its own shadow. A sheet that would need more than about 900 tiles is given a coarser repeat. When the offset falls back to a round dilation, the image covers the interior and the stroke margin and is kept out of hole interiors. Fibers on that fallback still clip to the interior only.
 
 ```swift
-let weave = UIImage(named: "sticker-weave") ?? UIImage()
+let paper = UIImage(named: "watercolor-paper") ?? UIImage()
 RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.hachure)
+    .fillAngle(0)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
     .stickerBacking(
         width: 16,
         smoothness: 1,
-        image: StickerImage(image: weave, placement: .tile, scale: 22)
+        image: StickerImage(image: paper, placement: .fill)
     )
     .circle()
 ```
+
+The gallery and the demo use a square crop of a watercolor-paper photograph. Photo from Unsplash: [images.unsplash.com/photo-1604147706283-d7119b5b822c](https://images.unsplash.com/photo-1604147706283-d7119b5b822c). Free under the [Unsplash License](https://unsplash.com/license). The photographer's name could not be verified from the public photo page.
 
 ### StickerTear
 
@@ -1132,7 +1197,54 @@ RoughView()
 
 `.smooth` draws curves between real corners, so star points and rectangle corners stay sharp. A sampled egg can still show those corners. `.fullySmooth()` or `.fullySmooth(radius:)` is a separate choice: the tangent stays continuous all the way around, including the closed seam, and silhouette corners are rounded. `radius` `0` picks a length from the outline that removes sampled facets. That mode offsets along the outward normal and then blurs, so a concave sample cannot fold into an inward notch. `.smooth` and `.torn` still use a clamped miter: a miter longer than about 3.2 times the margin is beveled. `.torn` keeps the chopped straight facets. `smoothness` still only chooses the rough outline or the input silhouette. A continuous outline that returns to its start, including an egg or ellipse with no explicit close, is a filled sheet. A notch tighter than the margin, or a torn edge that would cross itself, does not emit a self-intersecting fill. Tear depth is reduced first. If the offset still crosses, that closed contour falls back to a round dilation (filled centerline plus a round stroke). Grain on that fallback clips to the interior; the dilation stroke stays flat.
 
-Crayon and watercolor paint after the sheet, so the paper shows past the mark. Wax grit and a wet fringe can extend past the nominal stroke. Give those brushes a larger `width` if the texture should stay on the paper.
+Crayon and watercolor paint after the sheet, so the paper shows past the mark. Wax grit and a wet fringe can extend past the nominal stroke. Give those brushes a larger `width` if the texture should stay on the paper. The same is true of a group: the hull includes half of each part's nominal stroke, then `width`. Flakes past that stroke can still cross a tight margin.
+
+### SketchGroup
+
+Several separate drawings can share one sheet. Stacking `RoughView`s does not do this: each view still cuts its own paper, so a wing sitting on a body grows a white outline on the body. `SketchGroup` unions the parts first.
+
+```swift
+SketchGroup {
+    RoughView()
+        .fill(Color(red: 0.20, green: 0.48, blue: 0.78))
+        .fillStyle(.solid)
+        .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+        .strokeWidth(3)
+        .roughness(0.8)
+        .seed(7)
+        .draw(Circle(x: 70, y: 80, diameter: 90))
+    SketchPart(
+        RoughView()
+            .fill(Color(red: 0.86, green: 0.36, blue: 0.28))
+            .fillStyle(.solid)
+            .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+            .strokeWidth(3)
+            .roughness(0.8)
+            .seed(7)
+            .draw(Circle(x: 70, y: 80, diameter: 64))
+    )
+    .sketchOffset(x: 46, y: 8)
+}
+.stickerBacking(
+    width: 16,
+    smoothness: 0.55,
+    edge: .torn(StickerTear(depth: 6, length: 16, jaggedness: 0.3)),
+    color: Color.white,
+    texture: .paper(seed: 7)
+)
+.seed(7)
+.frame(width: 220, height: 180)
+```
+
+This is an explicit Sketchy group. It does not look through a SwiftUI `Group`, `VStack`, or `.offset` / `.scaleEffect` / `.rotationEffect` on a child. Those modifiers wrap the view after Sketchy has drawn it. Use `.sketchOffset`, `.sketchScale(_:around:)`, `.sketchRotation(_:around:)`, or `.sketchTransform` on a `SketchPart`. The anchor is in that part's coordinates and defaults to zero. `.sketchTransform` on the group runs after every part transform and moves the sheet with the art.
+
+Child SVG paths are not fitted one-by-one into the view. A `Path(d:)` keeps the coordinates you wrote. Scale or move the part, or the whole group, yourself. Native rectangles, circles, and polygons use the same point space. Stroke width, fill weight, and backing width stay in points. A scale of 2 does not double the stroke.
+
+The union is vector geometry. Each closed outline is offset by half that part's stroke (a hole shrinks, an exterior grows). Open strokes become the filled ribbon of that stroke. The rings are split where they cross, and an edge is kept only where one side is ink and the other is not. Overlaps become one exterior. A hole remains only where no part covers it. Shapes that do not touch stay separate. A shared corner does not grow a bridge. A part with fill and stroke both effectively clear is skipped. A fill-only or stroke-only part is included.
+
+While the group backing has a width above 0, a part's own `.stickerBacking` is not drawn. Set the group backing to nil and each part is an ordinary `RoughView` again, including its own paper. `.seed` on the group repeats the torn edge. Nil uses the first part's `Options.seed`, then a fixed seed. Grain still follows `StickerTexture.seed`, then that same seed. `shadow` on the group backing is one shadow for that shared sheet. It follows the merged outline, so a child edge inside the union does not cast its own.
+
+Roughness and crayon grit can extend past the nominal stroke. The sheet does not chase every flake. Increase `width` when the wax should stay on the paper. The union walks every outline edge against every other edge, so a group of very dense paths costs more than one shape. It does not rasterize the views.
 
 The default color is white. On a white or cream background the margin disappears. Put the view on a contrasting surface.
 
@@ -1533,6 +1645,9 @@ Engine.shared.clearCaches()
 3. `.strokeContinuity(.legacy)` and open contours (lines, curves, open arcs) get a ribbon, not a filled cutout. Closed sheets need `.continuous`, the default.
 4. A margin thinner than the roughness can let the second sketch pass cross the paper. Increase `width`.
 5. Crayon grit and watercolor fringe extend past `strokeWidth`. Increase `width` if that texture should stay on the sheet.
+6. A stack of `RoughView`s gives each shape its own sheet. Use `SketchGroup` when several shapes should share one cutout. SwiftUI `.offset`, `.scaleEffect`, and `.rotationEffect` are not part of that silhouette. Use `.sketchOffset`, `.sketchScale`, and `.sketchRotation`.
+7. Inside a `SketchGroup`, `Path(d:)` is not auto-fitted to the view. Place it with `.sketchTransform`.
+8. A sticker shadow is clipped by the view bounds. Leave padding of about `abs(offset) + radius * 2`. `opacity` `0` draws no shadow.
 
 ### Issue: Drawing Changes Every Redraw
 
@@ -1557,7 +1672,7 @@ Engine.shared.clearCaches()
 ## Version Information
 
 - **Package:** Sketchy
-- **Version:** 1.4.1
+- **Version:** 1.4.2
 - **Minimum iOS:** 17.0
 - **Swift:** 5.9+
 - **Rendering:** Native Swift (no JavaScript bridge)

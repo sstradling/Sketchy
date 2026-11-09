@@ -940,6 +940,52 @@ final class StickerBackingTests: XCTestCase {
         return points
     }
 
+    func testGroupImageIsOneMaskAndDoesNotCastTheShadow() throws {
+        let weave = try weaveImage()
+        let backing = StickerBacking(
+            width: 12,
+            smoothness: 1,
+            image: StickerImage(image: weave, placement: .fill, opacity: 1),
+            shadow: StickerShadow(opacity: 0.5, x: 10, y: 8, radius: 4, color: UIColor.black)
+        )
+        let size = CGSize(width: 260, height: 180)
+        let lines = SketchGroupRenderer.silhouetteLines(
+            parts: [
+                SketchPart(solid(Rectangle(x: 24, y: 30, width: 90, height: 70), .systemBlue)),
+                SketchPart(solid(Rectangle(x: 80, y: 48, width: 80, height: 60), .systemRed))
+            ],
+            backing: backing,
+            size: size
+        )
+        let sheet = StickerBackingBuilder.commands(for: lines, outward: backing.width, backing: backing, seed: 4)
+        let images = sheet.filter { $0.stickerImage != nil }
+        XCTAssertGreaterThan(images.count, 0)
+        XCTAssertLessThanOrEqual(images.count, 2)
+        XCTAssertTrue(images.allSatisfy { $0.sheetShadow == nil })
+        XCTAssertEqual(images[0].fillRule, .evenOdd)
+        let shadowed = sheet.filter { $0.sheetShadow != nil }
+        XCTAssertFalse(shadowed.isEmpty)
+        XCTAssertTrue(shadowed.allSatisfy { $0.stickerImage == nil })
+        XCTAssertEqual(lines.filter { abs(signedArea($0.points)) > 80 }.count, 1)
+    }
+
+    private func solid(_ shape: Drawable, _ color: UIColor) -> RoughView {
+        var view = RoughView().roughness(0).bowing(0).strokeWidth(2).fillStyle(.solid).seed(4)
+        view.options.stroke = color
+        view.options.fill = color
+        return view.draw(shape)
+    }
+
+    private func signedArea(_ points: [CGPoint]) -> CGFloat {
+        guard points.count >= 3 else { return 0 }
+        var sum: CGFloat = 0
+        for index in points.indices {
+            let next = points[(index + 1) % points.count]
+            sum += points[index].x * next.y - next.x * points[index].y
+        }
+        return sum * 0.5
+    }
+
     /// Synthetic 16×16 checker committed at `Fixtures/sticker-weave.png`.
     /// Rose `(214, 64, 92)` and teal `(40, 120, 150)` in 4-point blocks.
     /// Drawn for these tests. It is not a photograph or a third-party asset.

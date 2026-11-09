@@ -64,8 +64,15 @@ public struct RoughRenderCommand {
     ///
     /// Drawn after the style, clipped to `path` with `fillRule`. A `clipPath`
     /// already on the command intersects that mask, which is how a fallback
-    /// margin stays out of a hole.
+    /// margin stays out of a hole. A sheet shadow does not include this image.
     public let stickerImage: StickerImage?
+
+    /// Set on the solid sheet commands that share one drop shadow.
+    ///
+    /// Texture and image commands leave this nil, so grain and the masked
+    /// picture do not cast a second shadow. Consecutive commands with the
+    /// same value are painted in one layer.
+    var sheetShadow: SheetShadow?
 
     /// Description of stroke or fill styling.
     public enum Style {
@@ -89,6 +96,38 @@ public struct RoughRenderCommand {
         opacityMaskBlur: CGFloat = 0,
         stickerImage: StickerImage? = nil
     ) {
+        self.init(
+            path: path,
+            style: style,
+            clipPath: clipPath,
+            inverseClip: inverseClip,
+            cap: cap,
+            join: join,
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            sheetShadow: nil,
+            stickerImage: stickerImage
+        )
+    }
+
+    init(
+        path: SwiftUI.Path,
+        style: Style,
+        clipPath: SwiftUI.Path?,
+        inverseClip: Bool,
+        cap: BrushCap,
+        join: BrushJoin,
+        miterLimit: CGFloat,
+        fillRule: RoughFillRule,
+        opacityMaskGroup: Int?,
+        maskOpacity: CGFloat,
+        opacityMaskBlur: CGFloat,
+        sheetShadow: SheetShadow?,
+        stickerImage: StickerImage?
+    ) {
         self.path = path
         self.style = style
         self.clipPath = clipPath
@@ -100,8 +139,58 @@ public struct RoughRenderCommand {
         self.opacityMaskGroup = opacityMaskGroup
         self.maskOpacity = maskOpacity
         self.opacityMaskBlur = opacityMaskBlur
+        self.sheetShadow = sheetShadow
         self.stickerImage = stickerImage
     }
+
+    func withSheetShadow(_ shadow: SheetShadow) -> RoughRenderCommand {
+        RoughRenderCommand(
+            path: path,
+            style: style,
+            clipPath: clipPath,
+            inverseClip: inverseClip,
+            cap: cap,
+            join: join,
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            sheetShadow: shadow,
+            stickerImage: stickerImage
+        )
+    }
+
+    /// Same command with both paths moved by `transform`. Stroke widths stay in points.
+    func applying(_ transform: CGAffineTransform) -> RoughRenderCommand {
+        RoughRenderCommand(
+            path: path.applying(transform),
+            style: style,
+            clipPath: clipPath?.applying(transform),
+            inverseClip: inverseClip,
+            cap: cap,
+            join: join,
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            sheetShadow: sheetShadow,
+            stickerImage: stickerImage
+        )
+    }
+}
+
+/// One drop shadow shared by the solid commands of a sticker sheet.
+struct SheetShadow: Equatable {
+    var red: CGFloat
+    var green: CGFloat
+    var blue: CGFloat
+    var alpha: CGFloat
+    var opacity: CGFloat
+    var x: CGFloat
+    var y: CGFloat
+    var radius: CGFloat
 }
 
 /// How a filled rough command covers overlapping subpaths.
@@ -141,7 +230,13 @@ public struct SwiftUIRenderer {
     ///   - options: The original options (preserves SVG-specific settings that may not be in drawing.options).
     ///   - size: The available canvas size.
     /// - Returns: A collection of `RoughRenderCommand` describing how to render the drawing.
-    public func commands(for drawing: Drawing, options: Options, in size: CGSize) -> [RoughRenderCommand] {
+    public func commands(
+        for drawing: Drawing,
+        options: Options,
+        in size: CGSize,
+        placement: CGAffineTransform? = nil,
+        fitsSVG: Bool = true
+    ) -> [RoughRenderCommand] {
         measurePerformance(RenderingSignpost.buildCommands, log: RoughPerformanceLog.rendering, metadata: "shape=\(drawing.shape)") {
             // SVG paths need scaling to fit the canvas since they have their own coordinate system.
             // Text uses shape "text": FullText has already placed the glyphs, including alignment.
@@ -153,6 +248,12 @@ public struct SwiftUIRenderer {
             var scaledSVGClipPath: SwiftPath? = nil
             
             if isSVGPath {
+                if let placement, !fitsSVG {
+                    svgTransform = placement
+                    if let svg = drawing.sets.compactMap(\.path).first {
+                        scaledSVGClipPath = SwiftPath(UIBezierPath(svgPath: svg).cgPath).applying(placement)
+                    }
+                } else {
                 svgTransform = measurePerformance(RenderingSignpost.svgTransform, log: RoughPerformanceLog.rendering) {
                     // Find the original SVG path from one of the sets
                     let svgPath = drawing.sets.compactMap { $0.path }.first
@@ -164,6 +265,7 @@ public struct SwiftUIRenderer {
                         return transform
                     }
                     return nil
+                }
                 }
             }
             
@@ -240,6 +342,9 @@ public struct SwiftUIRenderer {
                 ))
             }
             
+            if let placement, !isSVGPath {
+                return result.map { $0.applying(placement) }
+            }
             return result
         }
     }
@@ -258,9 +363,23 @@ public struct SwiftUIRenderer {
         size: CGSize
     ) {
         let commands = commands(for: drawing, options: options, in: size)
+        render(commands: commands, in: &context)
+    }
+
+    /// Draws commands that were already built, including sticker sheets.
+    func render(commands: [RoughRenderCommand], in context: inout GraphicsContext) {
         var index = 0
         while index < commands.count {
             let command = commands[index]
+            if command.sheetShadow != nil {
+                var end = index + 1
+                while end < commands.count && commands[end].sheetShadow == command.sheetShadow {
+                    end += 1
+                }
+                renderSheetShadow(commands[index..<end], in: &context)
+                index = end
+                continue
+            }
             if command.opacityMaskGroup != nil {
                 var end = index + 1
                 while end < commands.count && commands[end].opacityMaskGroup == command.opacityMaskGroup {
@@ -285,6 +404,32 @@ public struct SwiftUIRenderer {
                 renderCommand(command, in: &context)
             }
             index += 1
+        }
+    }
+
+    /// Paints the solid sheet once, with one drop shadow behind it.
+    ///
+    /// The filter follows the alpha of that drawing, so an even-odd hole stays
+    /// a hole in the shadow. Grain is not in this run. The shadow is not
+    /// clipped to the paper; the canvas bounds still clip the layer.
+    private func renderSheetShadow(_ commands: ArraySlice<RoughRenderCommand>, in context: inout GraphicsContext) {
+        guard let shadow = commands.first?.sheetShadow else { return }
+        context.drawLayer { layer in
+            layer.addFilter(.shadow(
+                color: Color(
+                    .sRGB,
+                    red: Double(shadow.red),
+                    green: Double(shadow.green),
+                    blue: Double(shadow.blue),
+                    opacity: Double(min(1, max(0, shadow.alpha * shadow.opacity)))
+                ),
+                radius: max(0, shadow.radius),
+                x: shadow.x,
+                y: shadow.y
+            ))
+            for command in commands {
+                renderCommand(command, in: &layer)
+            }
         }
     }
 

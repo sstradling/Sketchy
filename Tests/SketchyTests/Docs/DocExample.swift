@@ -73,4 +73,6 @@ enum DocPicture: Equatable {
     /// Slate mat behind the rough view so a white sticker margin is visible.
     /// The snippet does not include the mat.
     case stickerMat
+    /// Two circles on one sheet. The catalog `view` is only the seeded first circle.
+    case stickerGroup
 }

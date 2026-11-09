@@ -5,6 +5,7 @@
 //  Opt-in paper behind a drawing, like a die-cut sticker or a paper cutout.
 //
 
+import SwiftUI
 import UIKit
 
 /// How the paper edge is cut.
@@ -183,6 +184,70 @@ public struct StickerImage: Equatable, Hashable {
     }
 }
 
+/// A drop shadow of the finished cutout, not of the ink.
+///
+/// Leave `StickerBacking.shadow` nil and nothing is added. `opacity` `0`, or
+/// a shadow with no offset and no blur, also draws nothing, so an opaque
+/// sheet stays pixel-identical to an unshadowed one.
+///
+/// `x` and `y` are points in the canvas, after `sketchTransform`. Positive
+/// `x` moves the shadow to the right. Positive `y` moves it down. `radius`
+/// is the blur, in the same points. Neither value is multiplied by
+/// `sketchScale`. A SwiftUI scale on the whole view scales the rendered
+/// shadow with the sheet.
+///
+/// The shadow follows the finished sheet: smooth, fully smooth, or torn,
+/// including holes and separate pieces. It is drawn behind the paper and is
+/// not clipped to the fill. The canvas bounds still clip it, so leave room
+/// of about `abs(offset) + radius * 2` or the blur is cut off. Fibers and
+/// the sketch are painted after the shadow and do not cast their own.
+public struct StickerShadow: Equatable, Hashable, Sendable {
+    /// Strength from 0 (invisible) to 1. Default 0.35.
+    public var opacity: CGFloat
+
+    /// Horizontal shift of the shadow, in points. Positive is right.
+    public var x: CGFloat
+
+    /// Vertical shift of the shadow, in points. Positive is down.
+    public var y: CGFloat
+
+    /// Blur radius in points. `0` is a hard shadow. Default 8.
+    public var radius: CGFloat
+
+    private var inkColor: RoughColor
+
+    /// Shadow color. Default is black. Alpha is multiplied by `opacity`.
+    public var color: UIColor {
+        get { inkColor.asUIColor }
+        set { inkColor = RoughColor(uiColor: newValue) }
+    }
+
+    public init(
+        opacity: CGFloat = 0.35,
+        x: CGFloat = 0,
+        y: CGFloat = 8,
+        radius: CGFloat = 8,
+        color: UIColor = .black
+    ) {
+        self.opacity = min(1, max(0, opacity))
+        self.x = x
+        self.y = y
+        self.radius = max(0, radius)
+        self.inkColor = RoughColor(uiColor: color)
+    }
+
+    /// `color` is a SwiftUI color. Pass `Color.black` when both overloads are visible.
+    public init(
+        opacity: CGFloat = 0.35,
+        x: CGFloat = 0,
+        y: CGFloat = 8,
+        radius: CGFloat = 8,
+        color: Color
+    ) {
+        self.init(opacity: opacity, x: x, y: y, radius: radius, color: UIColor(color))
+    }
+}
+
 /// Paper drawn behind a shape's fill and stroke.
 ///
 /// Leave `Options.stickerBacking` nil to draw nothing extra. A value does not
@@ -241,13 +306,17 @@ public struct StickerBacking: Equatable, Hashable {
         set { paperColor = RoughColor(uiColor: newValue) }
     }
 
+    /// Drop shadow of this sheet. `nil` draws none.
+    public var shadow: StickerShadow?
+
     public init(
         width: CGFloat,
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: UIColor = .white,
         texture: StickerTexture? = nil,
-        image: StickerImage? = nil
+        image: StickerImage? = nil,
+        shadow: StickerShadow? = nil
     ) {
         self.width = max(0, width)
         self.smoothness = min(1, max(0, smoothness))
@@ -255,6 +324,36 @@ public struct StickerBacking: Equatable, Hashable {
         self.texture = texture
         self.image = image
         self.paperColor = RoughColor(uiColor: color)
+        self.shadow = shadow
+    }
+
+    /// Same sheet with a drop shadow. `nil` removes it.
+    public func shadow(_ shadow: StickerShadow?) -> StickerBacking {
+        var copy = self
+        copy.shadow = shadow
+        return copy
+    }
+
+    /// Same sheet with a drop shadow. `color` defaults to black.
+    public func shadow(
+        opacity: CGFloat = 0.35,
+        x: CGFloat = 0,
+        y: CGFloat = 8,
+        radius: CGFloat = 8,
+        color: Color = Color.black
+    ) -> StickerBacking {
+        shadow(StickerShadow(opacity: opacity, x: x, y: y, radius: radius, color: color))
+    }
+
+    /// Same sheet with a drop shadow in a `UIColor`. `color` is required.
+    public func shadow(
+        opacity: CGFloat = 0.35,
+        x: CGFloat = 0,
+        y: CGFloat = 8,
+        radius: CGFloat = 8,
+        color: UIColor
+    ) -> StickerBacking {
+        shadow(StickerShadow(opacity: opacity, x: x, y: y, radius: radius, color: color))
     }
 
     private static func clamped(_ edge: StickerEdge) -> StickerEdge {

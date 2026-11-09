@@ -213,10 +213,10 @@ extension DocExampleCatalog {
         still(
             "sticker-image",
             section: "Stickers",
-            title: "Image texture",
-            description: "A decoded image is masked by the sheet. Tile scale is the repeat width in points. The paper color shows through transparent pixels. The slate mat is gallery chrome.",
+            title: "Image mask",
+            description: "A watercolor-paper photo is masked by the sheet. The paper color shows through transparent pixels. Photo from Unsplash. The slate mat is gallery chrome.",
             snippet: """
-            let weave = UIImage(named: "sticker-weave") ?? UIImage()
+            let paper = UIImage(named: "watercolor-paper") ?? UIImage()
             RoughView()
                 .fill(\(leaf.snippet))
                 .fillStyle(.hachure)
@@ -228,7 +228,7 @@ extension DocExampleCatalog {
                 .stickerBacking(
                     width: 16,
                     smoothness: 1,
-                    image: StickerImage(image: weave, placement: .tile, scale: 22)
+                    image: StickerImage(image: paper, placement: .fill)
                 )
                 .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
             """,
@@ -246,12 +246,129 @@ extension DocExampleCatalog {
                     width: 16,
                     smoothness: 1,
                     image: StickerImage(
-                        image: StickerWeaveFixture.image() ?? UIImage(),
-                        placement: .tile,
-                        scale: 22
+                        image: WatercolorPaperFixture.image() ?? UIImage(),
+                        placement: .fill
                     )
                 )
                 .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
+        },
+        still(
+            "sticker-group",
+            section: "Stickers",
+            title: "Shared sheet",
+            description: "SketchGroup gives both circles one sheet. sketchOffset moves the second circle. SwiftUI offset would not. The slate mat is gallery chrome.",
+            snippet: """
+            SketchGroup {
+                RoughView()
+                    .fill(\(inkBlue.snippet))
+                    .fillStyle(.hachure)
+                    .fillAngle(0)
+                    .fillSpacing(3)
+                    .stroke(\(charcoal.snippet))
+                    .strokeWidth(2)
+                    .seed(7)
+                    .draw(Circle(x: 78, y: 96, diameter: 78))
+                SketchPart(
+                    RoughView()
+                        .fill(\(coral.snippet))
+                        .fillStyle(.hachure)
+                        .fillAngle(0)
+                        .fillSpacing(3)
+                        .stroke(\(charcoal.snippet))
+                        .strokeWidth(2)
+                        .seed(7)
+                        .draw(Circle(x: 78, y: 96, diameter: 62))
+                )
+                .sketchOffset(x: 34, y: 6)
+            }
+            .stickerBacking(width: 12, smoothness: 0.7, color: Color.white)
+            .seed(7)
+            """,
+            picture: .stickerGroup
+        ) {
+            RoughView()
+                .fill(inkBlue.color)
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(7)
+                .draw(Circle(x: 78, y: 96, diameter: 78))
+        },
+        still(
+            "sticker-shadow",
+            section: "Stickers",
+            title: "Cutout shadow",
+            description: "One shadow of the sheet. opacity, x, y, and radius are points. Leave padding or the view clips the blur. The slate mat is gallery chrome.",
+            snippet: """
+            RoughView()
+                .fill(\(inkBlue.snippet))
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(\(charcoal.snippet))
+                .strokeWidth(2)
+                .seed(11)
+                .stickerBacking(
+                    width: 12,
+                    smoothness: 0.8,
+                    color: Color.white,
+                    shadow: StickerShadow(opacity: 0.4, x: 0, y: 8, radius: 6, color: Color.black)
+                )
+                .draw(EggShape(x: 92, y: 84, width: 64, height: 86, tilt: 0.2))
+            """,
+            picture: .stickerMat
+        ) {
+            RoughView()
+                .fill(inkBlue.color)
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(11)
+                .stickerBacking(
+                    width: 12,
+                    smoothness: 0.8,
+                    color: Color.white,
+                    shadow: StickerShadow(opacity: 0.4, x: 0, y: 8, radius: 6, color: Color.black)
+                )
+                .draw(EggShape(x: 92, y: 84, width: 64, height: 86, tilt: 0.2))
         }
     ]
+}
+
+struct DocStickerGroupCard: View {
+    var body: some View {
+        SketchGroup {
+            RoughView()
+                .fill(DocExampleCatalog.inkBlue.color)
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(DocExampleCatalog.charcoal.color)
+                .strokeWidth(2)
+                .seed(7)
+                .draw(Circle(x: 78, y: 96, diameter: 78))
+            SketchPart(
+                RoughView()
+                    .fill(DocExampleCatalog.coral.color)
+                    .fillStyle(.hachure)
+                    .fillAngle(0)
+                    .fillSpacing(3)
+                    .stroke(DocExampleCatalog.charcoal.color)
+                    .strokeWidth(2)
+                    .seed(7)
+                    .draw(Circle(x: 78, y: 96, diameter: 62))
+            )
+            .sketchOffset(x: 34, y: 6)
+        }
+        .stickerBacking(width: 12, smoothness: 0.7, color: Color.white)
+        .seed(7)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(red: 0.27, green: 0.36, blue: 0.43))
+        )
+    }
 }

@@ -11,7 +11,7 @@ For AI coding agents: [AGENTS.md](AGENTS.md) is how to work in this repo, and [l
 Add the package to your `Package.swift` dependencies and to the target that uses it. The package requires iOS 17 or later.
 
 ```swift
-.package(url: "https://github.com/sstradling/Sketchy", from: "1.4.1"),
+.package(url: "https://github.com/sstradling/Sketchy", from: "1.4.2"),
 ```
 
 ```swift
@@ -136,6 +136,41 @@ RoughView()
         Point(x: 78, y: 73)
     ]))
 ```
+
+Several shapes can share that sheet. `SketchGroup` unions their outlines, then draws one backing. It is not a SwiftUI `Group`. Move a child with `.sketchOffset`, `.sketchScale`, or `.sketchRotation`. SwiftUI `.offset` and `.scaleEffect` are not part of the silhouette. SVG paths in the group keep their own coordinates.
+
+```swift
+SketchGroup {
+    RoughView()
+        .fill(Color(red: 0.20, green: 0.48, blue: 0.78))
+        .fillStyle(.solid)
+        .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+        .strokeWidth(3)
+        .seed(7)
+        .draw(Circle(x: 70, y: 80, diameter: 90))
+    SketchPart(
+        RoughView()
+            .fill(Color(red: 0.86, green: 0.36, blue: 0.28))
+            .fillStyle(.solid)
+            .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+            .strokeWidth(3)
+            .seed(7)
+            .draw(Circle(x: 70, y: 80, diameter: 64))
+    )
+    .sketchOffset(x: 46, y: 8)
+}
+.stickerBacking(
+    width: 16,
+    smoothness: 0.55,
+    edge: .torn(),
+    color: Color.white,
+    texture: .paper(seed: 7),
+    shadow: StickerShadow(opacity: 0.35, x: 0, y: 10, radius: 12, color: Color.black)
+)
+.seed(7)
+```
+
+`shadow` is optional. Nil, or `opacity` `0`, leaves the sheet unchanged. The shadow follows the cutout, including a group outline and holes. It does not follow hatch gaps or crayon flakes. `x`, `y`, and `radius` are points. Give the frame padding or the blur is clipped.
 
 ### Opacity
 
@@ -427,6 +462,7 @@ Generators are cached by size. Drawings are cached by shape and by the options t
 - [**RoughSwift**](https://github.com/onmyway133/RoughSwift) by [Khoa Pham](https://github.com/onmyway133). Sketchy keeps that SwiftUI API and replaces the JavaScript engine with a native generator.
 - [**rough.js**](https://github.com/pshihn/rough) by Prashant Sharma. The hand-drawn line, fill, and curve algorithms come from rough.js.
 - [**SVGPath**](https://github.com/timrwood/SVGPath) by Tim Wood. SVG path parsing.
+- Watercolor paper photo from Unsplash, used as the sticker image-mask example: [photo-1604147706283-d7119b5b822c](https://images.unsplash.com/photo-1604147706283-d7119b5b822c). Free under the [Unsplash License](https://unsplash.com/license). The photographer's name was not verified.
 
 ## License
 

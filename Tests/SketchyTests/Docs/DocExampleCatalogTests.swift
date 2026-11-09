@@ -36,7 +36,7 @@ final class DocExampleCatalogTests: XCTestCase {
             if case .gif = example.kind { return true }
             return false
         }
-        XCTAssertEqual(stills.count, 70)
+        XCTAssertEqual(stills.count, 72)
         XCTAssertEqual(gifs.count, 7)
     }
 
@@ -177,6 +177,7 @@ final class DocExampleCatalogTests: XCTestCase {
             )
             XCTAssertTrue(
                 example.snippet.hasPrefix("RoughView()")
+                    || example.snippet.hasPrefix("SketchGroup {")
                     || example.snippet.hasPrefix("HStack(")
                     || example.snippet.hasPrefix("let "),
                 "\(example.id) snippet should start with the drawing source"

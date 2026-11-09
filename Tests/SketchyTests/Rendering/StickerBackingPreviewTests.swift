@@ -34,7 +34,8 @@ final class StickerBackingPreviewTests: XCTestCase {
         try write(fullEgg, name: "sticker-fully-smooth-egg-closeup.png", width: 760, height: 900, to: directory)
         try write(starModes, name: "sticker-fully-smooth-star.png", width: 860, height: 520, to: directory)
         try write(smoothCompound, name: "sticker-fully-smooth-compound.png", width: 860, height: 520, to: directory)
-        try write(imageCard, name: "sticker-image-texture.png", width: 1040, height: 700, to: directory)
+        try write(imageCard, name: "sticker-image-texture.png", width: 1100, height: 820, to: directory)
+        try write(shadowCard, name: "sticker-shadow-compare.png", width: 980, height: 520, to: directory)
     }
 
     private var starCard: some View {
@@ -212,6 +213,23 @@ final class StickerBackingPreviewTests: XCTestCase {
             .draw(EggShape(x: 100, y: 112, width: 86, height: 124, tilt: 0.42))
     }
 
+    /// Path coordinates stay as written. A RoughView would fit this path to the frame and push the sheet into the caption.
+    private func holeGroup(_ backing: StickerBacking) -> some View {
+        SketchGroup {
+            RoughView()
+                .fill(coral)
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(ink)
+                .strokeWidth(2)
+                .roughness(0.8)
+                .seed(9)
+                .draw(Sketchy.Path(d: "M40 36 H150 V146 H40 Z M78 74 H112 V112 H78 Z"))
+        }
+        .stickerBacking(backing)
+    }
+
     /// Smaller than `donut` so a fully smooth margin stays above its caption.
     private func smallDonut(backing: StickerBacking?) -> RoughView {
         RoughView()
@@ -351,33 +369,50 @@ final class StickerBackingPreviewTests: XCTestCase {
     }
 
     private var imageCard: some View {
-        let weave = StickerWeaveFixture.image() ?? UIImage()
-        return sizedCard("Image mask versus paper fibers. Smooth, torn, and a hole.", width: 1040, height: 700) {
-            HStack(alignment: .top, spacing: 16) {
-                imageSample("Paper fibers", backing: StickerBacking(
-                    width: 16,
-                    smoothness: 1,
-                    texture: .paper(amount: 0.6, scale: 9, seed: 6)
-                ), shape: .egg)
-                imageSample("Tiled image", backing: StickerBacking(
+        let paper = WatercolorPaperFixture.image() ?? UIImage()
+        return sizedCard("Watercolor paper masked to the sheet. Smooth, torn, and a hole.", width: 1100, height: 820) {
+            HStack(alignment: .top, spacing: 18) {
+                imageSample("Smooth, filled", backing: StickerBacking(
                     width: 16,
                     smoothness: 1,
                     edge: .smooth,
-                    color: .white,
-                    image: StickerImage(image: weave, placement: .tile, scale: 22, opacity: 1)
+                    color: UIColor.white,
+                    image: StickerImage(image: paper, placement: .fill, opacity: 1)
                 ), shape: .egg)
-                imageSample("Torn image", backing: StickerBacking(
+                imageSample("Torn, filled", backing: StickerBacking(
                     width: 16,
-                    smoothness: 0.7,
-                    edge: .torn(StickerTear(depth: 8, length: 16, jaggedness: 0.4)),
-                    image: StickerImage(image: weave, placement: .tile, scale: 18, opacity: 0.9)
+                    smoothness: 0.55,
+                    edge: .torn(StickerTear(depth: 8, length: 18, jaggedness: 0.35)),
+                    color: UIColor.white,
+                    image: StickerImage(image: paper, placement: .fill, opacity: 1)
                 ), shape: .egg)
-                imageSample("Hole, filled", backing: StickerBacking(
+                imageSample("Hole, fully smooth", backing: StickerBacking(
                     width: 12,
                     smoothness: 0.9,
                     edge: .fullySmooth(),
-                    image: StickerImage(image: weave, placement: .fill, opacity: 1)
+                    color: UIColor.white,
+                    image: StickerImage(image: paper, placement: .fill, opacity: 1)
                 ), shape: .donut)
+            }
+        }
+    }
+
+    private var shadowCard: some View {
+        sizedCard("Cutout shadow. Padding keeps the blur inside the card.", width: 980, height: 520) {
+            HStack(alignment: .top, spacing: 22) {
+                imageSample("No shadow", backing: StickerBacking(width: 14, smoothness: 0.8, color: UIColor.white), shape: .egg)
+                imageSample("Close\nopacity 0.35  y 6  radius 3", backing: StickerBacking(
+                    width: 14,
+                    smoothness: 0.8,
+                    color: UIColor.white,
+                    shadow: StickerShadow(opacity: 0.35, x: 0, y: 6, radius: 3, color: UIColor.black)
+                ), shape: .egg)
+                imageSample("Raised\nopacity 0.45  y 16  radius 12", backing: StickerBacking(
+                    width: 14,
+                    smoothness: 0.8,
+                    color: UIColor.white,
+                    shadow: StickerShadow(opacity: 0.45, x: 0, y: 16, radius: 12, color: UIColor.black)
+                ), shape: .egg)
             }
         }
     }
@@ -388,24 +423,27 @@ final class StickerBackingPreviewTests: XCTestCase {
     }
 
     private func imageSample(_ label: String, backing: StickerBacking, shape: ImageSampleShape) -> some View {
-        let drawing: RoughView = {
+        let drawing: AnyView = {
             switch shape {
             case .egg:
-                return egg(backing: backing)
+                return AnyView(egg(backing: backing))
             case .donut:
-                return smallDonut(backing: backing)
+                return AnyView(holeGroup(backing))
             }
         }()
-        return VStack(spacing: 16) {
+        return VStack(spacing: 0) {
             drawing
-                .frame(width: 230, height: 250)
-                .padding(.bottom, 36)
+                .frame(width: 210, height: 230)
+                .padding(.top, 18)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 56)
             Text(label)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(Color(white: 0.93))
                 .multilineTextAlignment(.center)
-                .frame(width: 220)
+                .frame(width: 240, height: 52, alignment: .top)
         }
+        .frame(width: 280, height: 380, alignment: .top)
     }
 
     private var starModes: some View {

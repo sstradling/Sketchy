@@ -71,14 +71,53 @@ struct WhatsNewView: View {
                             )
                         )
                         stickerSample(
-                            "image",
+                            "photo",
                             backing: StickerBacking(
                                 width: 10,
                                 smoothness: 1,
-                                image: StickerImage(image: stickerWeave(), placement: .tile, scale: 14)
+                                image: StickerImage(
+                                    image: UIImage(named: "watercolor-paper") ?? UIImage(),
+                                    placement: .fill
+                                )
                             )
                         )
                     }
+                }
+
+                section("Shared sticker", detail: "One sheet behind two shapes. The overlap does not grow a second halo.") {
+                    SketchGroup {
+                        RoughView()
+                            .fill(blue)
+                            .fillStyle(.solid)
+                            .stroke(ink)
+                            .strokeWidth(3)
+                            .roughness(0.7)
+                            .seed(7)
+                            .draw(Circle(x: 70, y: 78, diameter: 88))
+                        SketchPart(
+                            RoughView()
+                                .fill(Color(red: 0.86, green: 0.36, blue: 0.28))
+                                .fillStyle(.solid)
+                                .stroke(ink)
+                                .strokeWidth(3)
+                                .roughness(0.7)
+                                .seed(7)
+                                .draw(Circle(x: 70, y: 78, diameter: 60))
+                        )
+                        .sketchOffset(x: 42, y: 6)
+                    }
+                    .stickerBacking(
+                        width: 14,
+                        smoothness: 0.55,
+                        edge: .torn(StickerTear(depth: 5, length: 14, jaggedness: 0.3)),
+                        color: Color.white,
+                        texture: .paper(seed: 7),
+                        shadow: StickerShadow(opacity: 0.35, x: 0, y: 8, radius: 8, color: Color.black)
+                    )
+                    .seed(7)
+                    .frame(width: 210, height: 170)
+                    .padding(28)
+                    .background(Color(red: 0.22, green: 0.31, blue: 0.39))
                 }
 
                 Divider()
@@ -249,22 +288,6 @@ struct WhatsNewView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             content()
-        }
-    }
-
-    /// Same rose/teal checker as `Tests/SketchyTests/Fixtures/sticker-weave.png`.
-    /// Drawn here so the demo does not load a file. It is not a photograph.
-    private func stickerWeave() -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16))
-        return renderer.image { context in
-            for row in 0..<4 {
-                for column in 0..<4 {
-                    let rose = (row + column).isMultiple(of: 2)
-                    (rose ? UIColor(red: 214 / 255, green: 64 / 255, blue: 92 / 255, alpha: 1)
-                          : UIColor(red: 40 / 255, green: 120 / 255, blue: 150 / 255, alpha: 1)).setFill()
-                    context.fill(CGRect(x: column * 4, y: row * 4, width: 4, height: 4))
-                }
-            }
         }
     }
 
