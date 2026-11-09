@@ -209,6 +209,49 @@ extension DocExampleCatalog {
                 .seed(17)
                 .stickerBacking(width: 22, smoothness: 1, edge: .fullySmooth())
                 .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
+        },
+        still(
+            "sticker-image",
+            section: "Stickers",
+            title: "Image texture",
+            description: "A decoded image is masked by the sheet. Tile scale is the repeat width in points. The paper color shows through transparent pixels. The slate mat is gallery chrome.",
+            snippet: """
+            let weave = UIImage(named: "sticker-weave") ?? UIImage()
+            RoughView()
+                .fill(\(leaf.snippet))
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(\(charcoal.snippet))
+                .strokeWidth(2)
+                .seed(21)
+                .stickerBacking(
+                    width: 16,
+                    smoothness: 1,
+                    image: StickerImage(image: weave, placement: .tile, scale: 22)
+                )
+                .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
+            """,
+            picture: .stickerMat
+        ) {
+            RoughView()
+                .fill(leaf.color)
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(21)
+                .stickerBacking(
+                    width: 16,
+                    smoothness: 1,
+                    image: StickerImage(
+                        image: StickerWeaveFixture.image() ?? UIImage(),
+                        placement: .tile,
+                        scale: 22
+                    )
+                )
+                .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
         }
     ]
 }

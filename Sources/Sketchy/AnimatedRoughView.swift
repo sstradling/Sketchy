@@ -470,6 +470,14 @@ public struct AnimatedRoughView: View {
                 with: .color(color)
             )
         }
+        if let stickerImage = command.stickerImage {
+            StickerImagePainter.draw(
+                stickerImage,
+                mask: command.path,
+                fillRule: command.fillRule,
+                in: &context
+            )
+        }
     }
     
     /// Starts the animation timer.

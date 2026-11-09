@@ -310,14 +310,16 @@ public extension RoughText {
 
     /// Draws paper `width` points past the nominal glyph stroke.
     ///
-    /// `color` defaults to white. `texture` adds paper grain. See
-    /// `RoughView.stickerBacking(width:smoothness:edge:color:texture:)`.
+    /// `color` defaults to white. `texture` adds paper grain. `image` is
+    /// masked by the glyph sheet. See
+    /// `RoughView.stickerBacking(width:smoothness:edge:color:texture:image:)`.
     func stickerBacking(
         width: CGFloat,
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: Color = .white,
-        texture: StickerTexture? = nil
+        texture: StickerTexture? = nil,
+        image: StickerImage? = nil
     ) -> Self {
         RoughText(
             roughView: roughView.stickerBacking(
@@ -325,7 +327,8 @@ public extension RoughText {
                 smoothness: smoothness,
                 edge: edge,
                 color: color,
-                texture: texture
+                texture: texture,
+                image: image
             ),
             textSize: textSize
         )
@@ -338,7 +341,8 @@ public extension RoughText {
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: UIColor,
-        texture: StickerTexture? = nil
+        texture: StickerTexture? = nil,
+        image: StickerImage? = nil
     ) -> Self {
         RoughText(
             roughView: roughView.stickerBacking(
@@ -346,7 +350,8 @@ public extension RoughText {
                 smoothness: smoothness,
                 edge: edge,
                 color: color,
-                texture: texture
+                texture: texture,
+                image: image
             ),
             textSize: textSize
         )

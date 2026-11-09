@@ -60,6 +60,13 @@ public struct RoughRenderCommand {
     /// Blur radius, in points, applied to this mask before it is tinted. `0` is sharp.
     public let opacityMaskBlur: CGFloat
 
+    /// Image masked by `path`. `nil` leaves the stroke or fill unchanged.
+    ///
+    /// Drawn after the style, clipped to `path` with `fillRule`. A `clipPath`
+    /// already on the command intersects that mask, which is how a fallback
+    /// margin stays out of a hole.
+    public let stickerImage: StickerImage?
+
     /// Description of stroke or fill styling.
     public enum Style {
         /// Stroke path with a color and line width.
@@ -79,7 +86,8 @@ public struct RoughRenderCommand {
         fillRule: RoughFillRule = .evenOdd,
         opacityMaskGroup: Int? = nil,
         maskOpacity: CGFloat = 1,
-        opacityMaskBlur: CGFloat = 0
+        opacityMaskBlur: CGFloat = 0,
+        stickerImage: StickerImage? = nil
     ) {
         self.path = path
         self.style = style
@@ -92,6 +100,7 @@ public struct RoughRenderCommand {
         self.opacityMaskGroup = opacityMaskGroup
         self.maskOpacity = maskOpacity
         self.opacityMaskBlur = opacityMaskBlur
+        self.stickerImage = stickerImage
     }
 }
 
@@ -328,6 +337,7 @@ public struct SwiftUIRenderer {
                                 style: SwiftUI.FillStyle(eoFill: command.fillRule == .evenOdd)
                             )
                         }
+                        // The image is painted with the color fill, not into the opacity mask.
                     }
                 }
             }
@@ -378,6 +388,14 @@ public struct SwiftUIRenderer {
                 command.path,
                 with: .color(color),
                 style: SwiftUI.FillStyle(eoFill: command.fillRule == .evenOdd)
+            )
+        }
+        if let stickerImage = command.stickerImage {
+            StickerImagePainter.draw(
+                stickerImage,
+                mask: command.path,
+                fillRule: command.fillRule,
+                in: &context
             )
         }
     }

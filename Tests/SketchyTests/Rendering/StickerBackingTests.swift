@@ -423,6 +423,138 @@ final class StickerBackingTests: XCTestCase {
         XCTAssertEqual(red, 0.2, accuracy: 0.02)
     }
 
+    func testImageTextureIsMaskedAndLeavesFibersAlone() throws {
+        let size = CGSize(width: 180, height: 180)
+        let weave = try weaveImage()
+        var options = Options()
+        options.roughness = 1.2
+        options.seed = 9
+        options.strokeWidth = 2
+        options.fill = .clear
+        options.stickerBacking = StickerBacking(width: 12, smoothness: 0.9, edge: .fullySmooth())
+        let plain = try commands(
+            Sketchy.Path(d: "M16 16 H144 V144 H16 Z M50 50 H110 V110 H50 Z"),
+            options: options,
+            size: size
+        )
+        XCTAssertTrue(plain.allSatisfy { $0.stickerImage == nil })
+
+        let image = StickerImage(image: weave, placement: .tile, scale: 24, opacity: 0.6)
+        options.stickerBacking = StickerBacking(
+            width: 12,
+            smoothness: 0.9,
+            edge: .fullySmooth(),
+            image: image
+        )
+        let painted = try commands(
+            Sketchy.Path(d: "M16 16 H144 V144 H16 Z M50 50 H110 V110 H50 Z"),
+            options: options,
+            size: size
+        )
+        let masks = painted.filter { $0.stickerImage != nil }
+        XCTAssertEqual(masks.count, 1)
+        XCTAssertEqual(masks[0].stickerImage?.placement, .tile)
+        XCTAssertEqual(masks[0].stickerImage?.scale, 24)
+        XCTAssertEqual(masks[0].stickerImage?.opacity, 0.6)
+        XCTAssertEqual(masks[0].fillRule, .evenOdd)
+        let bounds = painted[0].path.boundingRect
+        let hole = CGPoint(x: bounds.midX, y: bounds.midY)
+        XCTAssertFalse(masks[0].path.cgPath.contains(hole, using: .evenOdd))
+        XCTAssertTrue(masks[0].path.cgPath.contains(CGPoint(x: bounds.minX + 16, y: bounds.midY), using: .evenOdd))
+        XCTAssertEqual(masks[0].path.boundingRect, painted[0].path.boundingRect)
+
+        options.stickerBacking = StickerBacking(
+            width: 12,
+            smoothness: 0.4,
+            edge: .torn(StickerTear(depth: 8, length: 16, jaggedness: 0.4)),
+            image: StickerImage(image: weave, placement: .stretch, scale: 1.4, opacity: 1)
+        )
+        let torn = try commands(
+            Sketchy.Path(d: "M16 16 H144 V144 H16 Z"),
+            options: options,
+            size: size
+        )
+        let tornImage = try XCTUnwrap(torn.first { $0.stickerImage != nil })
+        XCTAssertEqual(tornImage.stickerImage?.placement, .stretch)
+        XCTAssertEqual(tornImage.stickerImage?.resolvedFitScale, 1.4)
+        XCTAssertEqual(tornImage.path.boundingRect, torn[0].path.boundingRect)
+
+        options.stickerBacking = StickerBacking(width: 12, image: StickerImage(image: weave, opacity: 0))
+        let hidden = try commands(Rectangle(x: 30, y: 28, width: 100, height: 70), options: options, size: size)
+        XCTAssertTrue(hidden.allSatisfy { $0.stickerImage == nil })
+
+        let natural = StickerImage(image: weave)
+        XCTAssertEqual(natural.resolvedTileWidth, max(4, weave.size.width))
+        let coarse = StickerImagePainter.tileWidth(
+            StickerImage(image: weave, scale: 4),
+            in: CGRect(x: 0, y: 0, width: 400, height: 400)
+        )
+        XCTAssertGreaterThan(coarse, 4)
+
+        var hashed = Options()
+        hashed.stickerBacking = StickerBacking(width: 8, image: StickerImage(image: weave, scale: 20))
+        let firstHash = hashed.cacheHash
+        hashed.stickerBacking = StickerBacking(width: 8, image: StickerImage(image: weave, scale: 40))
+        XCTAssertNotEqual(firstHash, hashed.cacheHash)
+        hashed.stickerBacking = StickerBacking(width: 8, texture: .paper(seed: 3))
+        XCTAssertNil(hashed.stickerBacking?.image)
+        XCTAssertEqual(hashed.stickerBacking?.texture?.seed, 3)
+    }
+
+    func testImageTexturePixelsStayOutOfTheHoleAndOffTheMargin() throws {
+        let red = solidImage(UIColor(red: 0.85, green: 0.15, blue: 0.2, alpha: 1))
+        let card = ZStack {
+            Color(red: 0.22, green: 0.31, blue: 0.39)
+            RoughView()
+                .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+                .strokeWidth(2)
+                .roughness(0.4)
+                .seed(9)
+                .stickerBacking(
+                    width: 10,
+                    smoothness: 1,
+                    edge: .smooth,
+                    image: StickerImage(image: red, placement: .stretch, opacity: 1)
+                )
+                .draw(Sketchy.Path(d: "M24 24 H156 V156 H24 Z M64 64 H116 V116 H64 Z"))
+                .frame(width: 140, height: 140)
+        }
+        .frame(width: 180, height: 180)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 1
+        renderer.proposedSize = ProposedViewSize(width: 180, height: 180)
+        renderer.isOpaque = true
+        let image = try XCTUnwrap(renderer.uiImage?.cgImage)
+        func isRed(_ sample: RGBA) -> Bool {
+            sample.red > 140 && sample.green < 100 && sample.blue < 120
+        }
+        // The 140-point view is centered in the 180-point card, so view (x, y) is card (x + 20, y + 20).
+        XCTAssertFalse(isRed(try pixel(image, x: 4, y: 4)), "image spilled past the card")
+        XCTAssertFalse(isRed(try pixel(image, x: 110, y: 110)), "image spilled into the hole")
+        var sheet = false
+        for x in 30...50 where isRed(try pixel(image, x: x, y: 110)) {
+            sheet = true
+        }
+        XCTAssertTrue(sheet, "image should cover the sheet margin")
+    }
+
+    func testWeaveFixtureDecodesAndMatchesTheSyntheticChecker() throws {
+        let image = try weaveImage()
+        XCTAssertEqual(image.size, CGSize(width: 16, height: 16))
+        let decoded = try XCTUnwrap(StickerImage(data: try weaveData(), placement: .fill, scale: 1.2))
+        XCTAssertEqual(decoded.placement, .fill)
+        XCTAssertEqual(decoded.resolvedFitScale, 1.2)
+        guard let pixels = image.cgImage else {
+            return XCTFail("weave has no pixels")
+        }
+        guard let data = pixels.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else {
+            return XCTFail("weave has no bytes")
+        }
+        let rose = (bytes[0], bytes[1], bytes[2])
+        XCTAssertGreaterThan(rose.0, 180)
+        XCTAssertLessThan(rose.1, 100)
+    }
+
     func testCacheHashIncludesBacking() {
         var options = Options()
         let plain = options.cacheHash
@@ -806,6 +938,25 @@ final class StickerBackingTests: XCTestCase {
             }
         }
         return points
+    }
+
+    /// Synthetic 16×16 checker committed at `Fixtures/sticker-weave.png`.
+    /// Rose `(214, 64, 92)` and teal `(40, 120, 150)` in 4-point blocks.
+    /// Drawn for these tests. It is not a photograph or a third-party asset.
+    private func weaveData() throws -> Data {
+        try XCTUnwrap(StickerWeaveFixture.data(), "sticker-weave.png is missing from the test bundle")
+    }
+
+    private func weaveImage() throws -> UIImage {
+        try XCTUnwrap(StickerWeaveFixture.image())
+    }
+
+    private func solidImage(_ color: UIColor) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8))
+        return renderer.image { context in
+            color.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }
     }
 
     private struct RGBA {

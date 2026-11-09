@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import Sketchy
 
 /// Fill inset, sticker backing, variable marker, width stops, opacity, watercolor, and SVG arcs.
@@ -29,7 +30,7 @@ struct WhatsNewView: View {
                 }
                 .padding(.top)
 
-                section("Sticker backing", detail: "White, tinted, or grained paper behind the ink. Smoothness 1 follows the star. Torn chops the edge.") {
+                section("Sticker backing", detail: "White, tinted, grained, or image-masked paper behind the ink. Smoothness 1 follows the star. Torn chops the edge.") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 16) {
                             stickerSample("none", backing: nil)
@@ -67,6 +68,14 @@ struct WhatsNewView: View {
                                 smoothness: 1,
                                 color: UIColor(red: 0.96, green: 0.91, blue: 0.78, alpha: 1),
                                 texture: .paper(amount: 0.55, seed: 6)
+                            )
+                        )
+                        stickerSample(
+                            "image",
+                            backing: StickerBacking(
+                                width: 10,
+                                smoothness: 1,
+                                image: StickerImage(image: stickerWeave(), placement: .tile, scale: 14)
                             )
                         )
                     }
@@ -240,6 +249,22 @@ struct WhatsNewView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             content()
+        }
+    }
+
+    /// Same rose/teal checker as `Tests/SketchyTests/Fixtures/sticker-weave.png`.
+    /// Drawn here so the demo does not load a file. It is not a photograph.
+    private func stickerWeave() -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16))
+        return renderer.image { context in
+            for row in 0..<4 {
+                for column in 0..<4 {
+                    let rose = (row + column).isMultiple(of: 2)
+                    (rose ? UIColor(red: 214 / 255, green: 64 / 255, blue: 92 / 255, alpha: 1)
+                          : UIColor(red: 40 / 255, green: 120 / 255, blue: 150 / 255, alpha: 1)).setFill()
+                    context.fill(CGRect(x: column * 4, y: row * 4, width: 4, height: 4))
+                }
+            }
         }
     }
 

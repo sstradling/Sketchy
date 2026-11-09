@@ -34,6 +34,7 @@ final class StickerBackingPreviewTests: XCTestCase {
         try write(fullEgg, name: "sticker-fully-smooth-egg-closeup.png", width: 760, height: 900, to: directory)
         try write(starModes, name: "sticker-fully-smooth-star.png", width: 860, height: 520, to: directory)
         try write(smoothCompound, name: "sticker-fully-smooth-compound.png", width: 860, height: 520, to: directory)
+        try write(imageCard, name: "sticker-image-texture.png", width: 1040, height: 700, to: directory)
     }
 
     private var starCard: some View {
@@ -211,6 +212,21 @@ final class StickerBackingPreviewTests: XCTestCase {
             .draw(EggShape(x: 100, y: 112, width: 86, height: 124, tilt: 0.42))
     }
 
+    /// Smaller than `donut` so a fully smooth margin stays above its caption.
+    private func smallDonut(backing: StickerBacking?) -> RoughView {
+        RoughView()
+            .fill(coral)
+            .fillStyle(.hachure)
+            .fillAngle(0)
+            .fillSpacing(3)
+            .stroke(ink)
+            .strokeWidth(2)
+            .roughness(1.1)
+            .seed(9)
+            .stickerBacking(backing)
+            .draw(Sketchy.Path(d: "M62 70 H158 V166 H62 Z M90 98 H130 V138 H90 Z"))
+    }
+
     private func donut(backing: StickerBacking?) -> RoughView {
         RoughView()
             .fill(coral)
@@ -331,6 +347,64 @@ final class StickerBackingPreviewTests: XCTestCase {
                 }
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var imageCard: some View {
+        let weave = StickerWeaveFixture.image() ?? UIImage()
+        return sizedCard("Image mask versus paper fibers. Smooth, torn, and a hole.", width: 1040, height: 700) {
+            HStack(alignment: .top, spacing: 16) {
+                imageSample("Paper fibers", backing: StickerBacking(
+                    width: 16,
+                    smoothness: 1,
+                    texture: .paper(amount: 0.6, scale: 9, seed: 6)
+                ), shape: .egg)
+                imageSample("Tiled image", backing: StickerBacking(
+                    width: 16,
+                    smoothness: 1,
+                    edge: .smooth,
+                    color: .white,
+                    image: StickerImage(image: weave, placement: .tile, scale: 22, opacity: 1)
+                ), shape: .egg)
+                imageSample("Torn image", backing: StickerBacking(
+                    width: 16,
+                    smoothness: 0.7,
+                    edge: .torn(StickerTear(depth: 8, length: 16, jaggedness: 0.4)),
+                    image: StickerImage(image: weave, placement: .tile, scale: 18, opacity: 0.9)
+                ), shape: .egg)
+                imageSample("Hole, filled", backing: StickerBacking(
+                    width: 12,
+                    smoothness: 0.9,
+                    edge: .fullySmooth(),
+                    image: StickerImage(image: weave, placement: .fill, opacity: 1)
+                ), shape: .donut)
+            }
+        }
+    }
+
+    private enum ImageSampleShape {
+        case egg
+        case donut
+    }
+
+    private func imageSample(_ label: String, backing: StickerBacking, shape: ImageSampleShape) -> some View {
+        let drawing: RoughView = {
+            switch shape {
+            case .egg:
+                return egg(backing: backing)
+            case .donut:
+                return smallDonut(backing: backing)
+            }
+        }()
+        return VStack(spacing: 16) {
+            drawing
+                .frame(width: 230, height: 250)
+                .padding(.bottom, 36)
+            Text(label)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color(white: 0.93))
+                .multilineTextAlignment(.center)
+                .frame(width: 220)
         }
     }
 

@@ -30,7 +30,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SketchyTests",
-            dependencies: ["Sketchy"]
+            dependencies: ["Sketchy"],
+            resources: [
+                .copy("Fixtures")
+            ]
         ),
     ]
 )

@@ -86,6 +86,7 @@ enum StickerBackingBuilder {
                 outward: outward,
                 finish: finish,
                 texture: backing.texture,
+                image: backing.image,
                 seed: options.seed,
                 color: paper,
                 uiColor: backing.color
@@ -123,7 +124,9 @@ enum StickerBackingBuilder {
                     join: torn ? .bevel : .round,
                     miterLimit: 4
                 ))
-                if let texture = backing.texture, texture.amount > 0.01 {
+                let wantsImage = backing.image != nil && (backing.image?.opacity ?? 0) > 0.001
+                let wantsGrain = (backing.texture?.amount ?? 0) > 0.01
+                if wantsImage || wantsGrain {
                     let clip = NativeStrokeOutline.path(
                         from: center,
                         width: ribbon,
@@ -131,12 +134,17 @@ enum StickerBackingBuilder {
                         join: torn ? .bevel : .round,
                         miterLimit: 4
                     )
-                    commands.append(contentsOf: textureCommands(
-                        clip: clip,
-                        texture: texture,
-                        seed: options.seed,
-                        base: backing.color
-                    ))
+                    if let imageCommand = imageCommand(mask: clip, image: backing.image, fillRule: .winding) {
+                        commands.append(imageCommand)
+                    }
+                    if wantsGrain, let texture = backing.texture {
+                        commands.append(contentsOf: textureCommands(
+                            clip: clip,
+                            texture: texture,
+                            seed: options.seed,
+                            base: backing.color
+                        ))
+                    }
                 }
             }
         }
@@ -184,6 +192,7 @@ enum StickerBackingBuilder {
         outward: CGFloat,
         finish: PaperFinish,
         texture: StickerTexture?,
+        image: StickerImage?,
         seed: UInt64?,
         color: Color,
         uiColor: UIColor
@@ -237,7 +246,14 @@ enum StickerBackingBuilder {
 
         if !failed, offsets.count == rings.count, !offsets.isEmpty {
             let paper = compoundPath(offsets, closed: true, curved: !torn, continuous: continuous)
-            return sheetCommands(paper, color: color, uiColor: uiColor, texture: texture, seed: seed)
+            return sheetCommands(
+                paper,
+                color: color,
+                uiColor: uiColor,
+                texture: texture,
+                image: image,
+                seed: seed
+            )
         }
 
         let sources = lines.map { line -> [CGPoint] in
@@ -263,8 +279,32 @@ enum StickerBackingBuilder {
                 miterLimit: 1
             )
         ]
-        // The round stroke supplies the margin. Grain clips to the interior
-        // sheet; the margin stroke stays a flat color when offset failed.
+        // The round stroke supplies the margin. The image covers that stroke
+        // as well as the interior, and an inverse hole clip keeps the opening clear.
+        if image != nil {
+            if let interior = imageCommand(mask: center, image: image, fillRule: .evenOdd) {
+                commands.append(interior)
+            }
+            let ribbon = NativeStrokeOutline.path(
+                from: center,
+                width: dilation,
+                cap: .round,
+                join: .round,
+                miterLimit: 1
+            )
+            let holes = holeClip(lines: lines, points: lines.map(\.points))
+            if let margin = imageCommand(
+                mask: ribbon,
+                image: image,
+                fillRule: .winding,
+                clipPath: holes,
+                inverseClip: holes != nil
+            ) {
+                commands.append(margin)
+            }
+        }
+        // Grain still clips to the interior. The margin stroke stays flat when
+        // only fibers are set.
         if let texture, texture.amount > 0.01 {
             commands.append(contentsOf: textureCommands(
                 clip: center,
@@ -282,11 +322,15 @@ enum StickerBackingBuilder {
         color: Color,
         uiColor: UIColor,
         texture: StickerTexture?,
+        image: StickerImage?,
         seed: UInt64?
     ) -> [RoughRenderCommand] {
         var commands = [
             RoughRenderCommand(path: paper, style: .fill(color), fillRule: .evenOdd)
         ]
+        if let painted = imageCommand(mask: paper, image: image, fillRule: .evenOdd) {
+            commands.append(painted)
+        }
         if let texture, texture.amount > 0.01 {
             commands.append(contentsOf: textureCommands(
                 clip: paper,
@@ -327,6 +371,43 @@ enum StickerBackingBuilder {
             }
         }
         return segmentsIntersect(best) ? ring : best
+    }
+
+    /// One image fill masked by `mask`. Nil when there is no image or it is invisible.
+    ///
+    /// `clipPath` intersects the mask. Inverse clipping is how the fallback
+    /// stroke margin is kept out of a hole.
+    private static func imageCommand(
+        mask: SwiftUI.Path,
+        image: StickerImage?,
+        fillRule: RoughFillRule,
+        clipPath: SwiftUI.Path? = nil,
+        inverseClip: Bool = false
+    ) -> RoughRenderCommand? {
+        guard let image, image.opacity > 0.001, image.image.cgImage != nil else { return nil }
+        guard mask.boundingRect.width > 0.5, mask.boundingRect.height > 0.5 else { return nil }
+        return RoughRenderCommand(
+            path: mask,
+            style: .fill(.clear),
+            clipPath: clipPath,
+            inverseClip: inverseClip,
+            fillRule: fillRule,
+            stickerImage: image
+        )
+    }
+
+    /// Filled hole rings. The fallback image uses this as an inverse clip.
+    private static func holeClip(lines: [Centerline], points: [[CGPoint]]) -> SwiftUI.Path? {
+        var path = SwiftUI.Path()
+        var found = false
+        for index in lines.indices {
+            guard !nestingDepth(index, in: lines).isMultiple(of: 2) else { continue }
+            let ring = index < points.count ? points[index] : lines[index].points
+            guard ring.count >= 3 else { continue }
+            path.addPath(contourPath(ring, closed: true, curved: false, continuous: false))
+            found = true
+        }
+        return found ? path : nil
     }
 
     /// Short fibers inside `clip`. Even-odd clip keeps holes empty.

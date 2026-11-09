@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `StickerImage` masks a decoded `UIImage` with the sticker sheet. `.tile`, `.stretch`, and `.fill` place it. `scale` and `opacity` adjust the repeat or the fit and how strongly it covers the paper color. Paper fibers stay available and still default to off. The image is not loaded from a URL.
+
 ## [1.4.1] - 2026-11-06
 
 - `.stickerBacking(width:smoothness:edge:color:texture:)` on `RoughView` and `RoughText` draws an opt-in paper sheet behind the sketch. Leave it off, or set `width` to `0`, and the drawing is unchanged. `width` is the margin past the nominal stroke. The sheet extends `width + strokeWidth / 2` from the outline centerline. `smoothness` runs from `0` (follow the rough edge) to `1` (follow the input silhouette). It does not choose how corners are cut.

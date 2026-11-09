@@ -586,7 +586,12 @@ extension RoughRenderCommand {
             inverseClip: inverseClip,
             cap: cap,
             join: join,
-            miterLimit: miterLimit
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            stickerImage: stickerImage
         )
     }
     
@@ -613,7 +618,12 @@ extension RoughRenderCommand {
                 inverseClip: inverseClip,
                 cap: cap,
                 join: join,
-                miterLimit: miterLimit
+                miterLimit: miterLimit,
+                fillRule: fillRule,
+                opacityMaskGroup: opacityMaskGroup,
+                maskOpacity: maskOpacity,
+                opacityMaskBlur: opacityMaskBlur,
+                stickerImage: stickerImage
             )
         }
     }
@@ -646,6 +656,21 @@ struct PrecomputedCommandVariance {
 
     /// Miter limit for miter joins.
     let miterLimit: CGFloat
+
+    /// Fill rule copied from the source command.
+    let fillRule: RoughFillRule
+
+    /// Opacity-mask group copied from the source command.
+    let opacityMaskGroup: Int?
+
+    /// Mask opacity copied from the source command.
+    let maskOpacity: CGFloat
+
+    /// Mask blur copied from the source command.
+    let opacityMaskBlur: CGFloat
+
+    /// Image masked by the varied path. Pixels are not varied.
+    let stickerImage: StickerImage?
     
     /// Number of animation steps.
     var stepCount: Int { pathVariance.stepCount }
@@ -661,6 +686,11 @@ struct PrecomputedCommandVariance {
         self.cap = command.cap
         self.join = command.join
         self.miterLimit = command.miterLimit
+        self.fillRule = command.fillRule
+        self.opacityMaskGroup = command.opacityMaskGroup
+        self.maskOpacity = command.maskOpacity
+        self.opacityMaskBlur = command.opacityMaskBlur
+        self.stickerImage = command.stickerImage
     }
     
     /// Builds the command for a specific animation step.
@@ -678,7 +708,12 @@ struct PrecomputedCommandVariance {
             inverseClip: inverseClip,
             cap: cap,
             join: join,
-            miterLimit: miterLimit
+            miterLimit: miterLimit,
+            fillRule: fillRule,
+            opacityMaskGroup: opacityMaskGroup,
+            maskOpacity: maskOpacity,
+            opacityMaskBlur: opacityMaskBlur,
+            stickerImage: stickerImage
         )
     }
 }
