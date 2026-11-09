@@ -60,10 +60,18 @@ public struct RoughRenderCommand {
     /// Blur radius, in points, applied to this mask before it is tinted. `0` is sharp.
     public let opacityMaskBlur: CGFloat
 
+    /// Image masked by `path`. `nil` leaves the stroke or fill unchanged.
+    ///
+    /// Drawn after the style, clipped to `path` with `fillRule`. A `clipPath`
+    /// already on the command intersects that mask, which is how a fallback
+    /// margin stays out of a hole. A sheet shadow does not include this image.
+    public let stickerImage: StickerImage?
+
     /// Set on the solid sheet commands that share one drop shadow.
     ///
-    /// Texture commands leave this nil, so grain does not cast a second shadow.
-    /// Consecutive commands with the same value are painted in one layer.
+    /// Texture and image commands leave this nil, so grain and the masked
+    /// picture do not cast a second shadow. Consecutive commands with the
+    /// same value are painted in one layer.
     var sheetShadow: SheetShadow?
 
     /// Description of stroke or fill styling.
@@ -85,7 +93,8 @@ public struct RoughRenderCommand {
         fillRule: RoughFillRule = .evenOdd,
         opacityMaskGroup: Int? = nil,
         maskOpacity: CGFloat = 1,
-        opacityMaskBlur: CGFloat = 0
+        opacityMaskBlur: CGFloat = 0,
+        stickerImage: StickerImage? = nil
     ) {
         self.init(
             path: path,
@@ -99,7 +108,8 @@ public struct RoughRenderCommand {
             opacityMaskGroup: opacityMaskGroup,
             maskOpacity: maskOpacity,
             opacityMaskBlur: opacityMaskBlur,
-            sheetShadow: nil
+            sheetShadow: nil,
+            stickerImage: stickerImage
         )
     }
 
@@ -115,7 +125,8 @@ public struct RoughRenderCommand {
         opacityMaskGroup: Int?,
         maskOpacity: CGFloat,
         opacityMaskBlur: CGFloat,
-        sheetShadow: SheetShadow?
+        sheetShadow: SheetShadow?,
+        stickerImage: StickerImage?
     ) {
         self.path = path
         self.style = style
@@ -129,6 +140,7 @@ public struct RoughRenderCommand {
         self.maskOpacity = maskOpacity
         self.opacityMaskBlur = opacityMaskBlur
         self.sheetShadow = sheetShadow
+        self.stickerImage = stickerImage
     }
 
     func withSheetShadow(_ shadow: SheetShadow) -> RoughRenderCommand {
@@ -144,7 +156,8 @@ public struct RoughRenderCommand {
             opacityMaskGroup: opacityMaskGroup,
             maskOpacity: maskOpacity,
             opacityMaskBlur: opacityMaskBlur,
-            sheetShadow: shadow
+            sheetShadow: shadow,
+            stickerImage: stickerImage
         )
     }
 
@@ -162,7 +175,8 @@ public struct RoughRenderCommand {
             opacityMaskGroup: opacityMaskGroup,
             maskOpacity: maskOpacity,
             opacityMaskBlur: opacityMaskBlur,
-            sheetShadow: sheetShadow
+            sheetShadow: sheetShadow,
+            stickerImage: stickerImage
         )
     }
 }
@@ -468,6 +482,7 @@ public struct SwiftUIRenderer {
                                 style: SwiftUI.FillStyle(eoFill: command.fillRule == .evenOdd)
                             )
                         }
+                        // The image is painted with the color fill, not into the opacity mask.
                     }
                 }
             }
@@ -518,6 +533,14 @@ public struct SwiftUIRenderer {
                 command.path,
                 with: .color(color),
                 style: SwiftUI.FillStyle(eoFill: command.fillRule == .evenOdd)
+            )
+        }
+        if let stickerImage = command.stickerImage {
+            StickerImagePainter.draw(
+                stickerImage,
+                mask: command.path,
+                fillRule: command.fillRule,
+                in: &context
             )
         }
     }

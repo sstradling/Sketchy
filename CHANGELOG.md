@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## [1.5.0] - 2026-11-09
+
+- The sticker docs now cover the full set of options: width and smoothness, `.smooth` versus `.fullySmooth()` versus `.torn()`, backing color and paper grain, image masking, `SketchGroup` with `SketchPart` transforms, and `StickerShadow`. README, `DOCUMENTATION.md`, `llms.txt`, the demo, and the generated gallery in `docs/Examples.md` agree.
+- The image-masked examples use a 32-point border so the watercolor paper is clearly visible. The example photo is a square crop of a watercolor-paper photograph from Unsplash (https://images.unsplash.com/photo-1604147706283-d7119b5b822c, Unsplash License, https://unsplash.com/license). The photographer's name could not be verified, so the credit reads "Photo from Unsplash".
+- A sticker sheet keeps a square corner when `.smooth` is used. If a hole is too small to take the full margin, that opening stays and the outside corners are not rounded into a squircle.
+- `StickerImage` masks a decoded `UIImage` with the sticker sheet. `.tile`, `.stretch`, and `.fill` place it. `scale` and `opacity` adjust the repeat or the fit and how strongly it covers the paper color. Paper fibers stay available and still default to off. The image is not loaded from a URL. It follows smooth, fully smooth, and torn edges, holes, `SketchGroup`, and sits on top of the sheet color without casting its own `StickerShadow`.
 
 ## [1.4.2] - 2026-11-07
 

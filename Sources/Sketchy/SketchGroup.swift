@@ -141,6 +141,7 @@ public struct SketchGroup: View {
         edge: StickerEdge = .smooth,
         color: Color = .white,
         texture: StickerTexture? = nil,
+        image: StickerImage? = nil,
         shadow: StickerShadow? = nil
     ) -> SketchGroup {
         stickerBacking(StickerBacking(
@@ -149,6 +150,7 @@ public struct SketchGroup: View {
             edge: edge,
             color: UIColor(color),
             texture: texture,
+            image: image,
             shadow: shadow
         ))
     }
@@ -160,6 +162,7 @@ public struct SketchGroup: View {
         edge: StickerEdge = .smooth,
         color: UIColor,
         texture: StickerTexture? = nil,
+        image: StickerImage? = nil,
         shadow: StickerShadow? = nil
     ) -> SketchGroup {
         stickerBacking(StickerBacking(
@@ -168,6 +171,7 @@ public struct SketchGroup: View {
             edge: edge,
             color: color,
             texture: texture,
+            image: image,
             shadow: shadow
         ))
     }

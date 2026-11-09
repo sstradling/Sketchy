@@ -34,6 +34,8 @@ final class StickerBackingPreviewTests: XCTestCase {
         try write(fullEgg, name: "sticker-fully-smooth-egg-closeup.png", width: 760, height: 900, to: directory)
         try write(starModes, name: "sticker-fully-smooth-star.png", width: 860, height: 520, to: directory)
         try write(smoothCompound, name: "sticker-fully-smooth-compound.png", width: 860, height: 520, to: directory)
+        try write(imageCard, name: "sticker-image-texture.png", width: 980, height: 430, to: directory)
+        try write(shadowCard, name: "sticker-shadow-compare.png", width: 980, height: 520, to: directory)
     }
 
     private var starCard: some View {
@@ -211,6 +213,40 @@ final class StickerBackingPreviewTests: XCTestCase {
             .draw(EggShape(x: 100, y: 112, width: 86, height: 124, tilt: 0.42))
     }
 
+    /// Path coordinates stay as written. A RoughView would fit this path to the frame and push the sheet into the caption.
+    private func holeGroup(_ backing: StickerBacking) -> some View {
+        SketchGroup {
+            RoughView()
+                .fill(coral)
+                .fillStyle(.hachure)
+                .fillAngle(0)
+                .fillSpacing(3)
+                .stroke(ink)
+                .strokeWidth(2)
+                .roughness(0)
+                .bowing(0)
+                .maxRandomnessOffset(0)
+                .seed(9)
+                .draw(Sketchy.Path(d: "M40 36 H150 V146 H40 Z M78 74 H112 V112 H78 Z"))
+        }
+        .stickerBacking(backing)
+    }
+
+    /// Smaller than `donut` so a fully smooth margin stays above its caption.
+    private func smallDonut(backing: StickerBacking?) -> RoughView {
+        RoughView()
+            .fill(coral)
+            .fillStyle(.hachure)
+            .fillAngle(0)
+            .fillSpacing(3)
+            .stroke(ink)
+            .strokeWidth(2)
+            .roughness(1.1)
+            .seed(9)
+            .stickerBacking(backing)
+            .draw(Sketchy.Path(d: "M62 70 H158 V166 H62 Z M90 98 H130 V138 H90 Z"))
+    }
+
     private func donut(backing: StickerBacking?) -> RoughView {
         RoughView()
             .fill(coral)
@@ -332,6 +368,89 @@ final class StickerBackingPreviewTests: XCTestCase {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    private var imageCard: some View {
+        let paper = WatercolorPaperFixture.image() ?? UIImage()
+        return sizedCard("Watercolor paper masked to the sheet. Smooth, torn, and a square hole.", width: 980, height: 430) {
+            HStack(alignment: .top, spacing: 12) {
+                imageSample("Smooth, filled", compact: true, backing: StickerBacking(
+                    width: 32,
+                    smoothness: 1,
+                    edge: .smooth,
+                    color: UIColor.white,
+                    image: StickerImage(image: paper, placement: .fill, opacity: 1)
+                ), shape: .egg)
+                imageSample("Torn, filled", compact: true, backing: StickerBacking(
+                    width: 32,
+                    smoothness: 0.55,
+                    edge: .torn(StickerTear(depth: 8, length: 18, jaggedness: 0.35)),
+                    color: UIColor.white,
+                    image: StickerImage(image: paper, placement: .fill, opacity: 1)
+                ), shape: .egg)
+                imageSample("Hole, smooth", compact: true, backing: StickerBacking(
+                    width: 32,
+                    smoothness: 1,
+                    edge: .smooth,
+                    color: UIColor.white,
+                    image: StickerImage(image: paper, placement: .fill, opacity: 1)
+                ), shape: .donut)
+            }
+        }
+    }
+
+    private var shadowCard: some View {
+        sizedCard("Cutout shadow. Padding keeps the blur inside the card.", width: 980, height: 520) {
+            HStack(alignment: .top, spacing: 22) {
+                imageSample("No shadow", backing: StickerBacking(width: 14, smoothness: 0.8, color: UIColor.white), shape: .egg)
+                imageSample("Close\nopacity 0.35  y 6  radius 3", backing: StickerBacking(
+                    width: 14,
+                    smoothness: 0.8,
+                    color: UIColor.white,
+                    shadow: StickerShadow(opacity: 0.35, x: 0, y: 6, radius: 3, color: UIColor.black)
+                ), shape: .egg)
+                imageSample("Raised\nopacity 0.45  y 16  radius 12", backing: StickerBacking(
+                    width: 14,
+                    smoothness: 0.8,
+                    color: UIColor.white,
+                    shadow: StickerShadow(opacity: 0.45, x: 0, y: 16, radius: 12, color: UIColor.black)
+                ), shape: .egg)
+            }
+        }
+    }
+
+    private enum ImageSampleShape {
+        case egg
+        case donut
+    }
+
+    private func imageSample(
+        _ label: String,
+        compact: Bool = false,
+        backing: StickerBacking,
+        shape: ImageSampleShape
+    ) -> some View {
+        let drawing: AnyView = {
+            switch shape {
+            case .egg:
+                return AnyView(egg(backing: backing))
+            case .donut:
+                return AnyView(holeGroup(backing))
+            }
+        }()
+        return VStack(spacing: 0) {
+            drawing
+                .frame(width: 210, height: 230)
+                .padding(.top, compact ? 8 : 18)
+                .padding(.horizontal, compact ? 16 : 24)
+                .padding(.bottom, compact ? 16 : 56)
+            Text(label)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color(white: 0.93))
+                .multilineTextAlignment(.center)
+                .frame(width: compact ? 230 : 240, height: compact ? 36 : 52, alignment: .top)
+        }
+        .frame(width: compact ? 250 : 280, height: compact ? 310 : 380, alignment: .top)
     }
 
     private var starModes: some View {

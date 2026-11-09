@@ -59,6 +59,7 @@
 		AA1000022EF63D200BBE97D1 /* PrimitivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000012EF63D200BBE97D1 /* PrimitivesView.swift */; };
 		AA1000042EF63D200BBE97D1 /* OptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000032EF63D200BBE97D1 /* OptionsView.swift */; };
 		AA1000062EF63D200BBE97D1 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000052EF63D200BBE97D1 /* WhatsNewView.swift */; };
+		BB11AA022EF63D200BBE97D1 /* watercolor-paper.jpg in Resources */ = {isa = PBXBuildFile; fileRef = BB11AA012EF63D200BBE97D1 /* watercolor-paper.jpg */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -115,6 +116,7 @@
 		AA1000012EF63D200BBE97D1 /* PrimitivesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimitivesView.swift; sourceTree = "<group>"; };
 		AA1000032EF63D200BBE97D1 /* OptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptionsView.swift; sourceTree = "<group>"; };
 		AA1000052EF63D200BBE97D1 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
+		BB11AA012EF63D200BBE97D1 /* watercolor-paper.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "watercolor-paper.jpg"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -230,6 +232,7 @@
 				AA1000012EF63D200BBE97D1 /* PrimitivesView.swift */,
 				AA1000032EF63D200BBE97D1 /* OptionsView.swift */,
 				AA1000052EF63D200BBE97D1 /* WhatsNewView.swift */,
+				BB11AA012EF63D200BBE97D1 /* watercolor-paper.jpg */,
 				BA129A572EFDEDAD0024F01F /* Fredoka */,
 				BA129A6D2EFDEDAD0024F01F /* Nunito */,
 				D2C5CBF427EF63D500BBE97D /* Assets.xcassets */,
@@ -370,6 +373,7 @@
 				BA129A9D2EFDEDAD0024F01F /* Fredoka-Light.ttf in Resources */,
 				D2C5CBF827EF63D500BBE97D /* Preview Assets.xcassets in Resources */,
 				D2C5CBF527EF63D500BBE97D /* Assets.xcassets in Resources */,
+				BB11AA022EF63D200BBE97D1 /* watercolor-paper.jpg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

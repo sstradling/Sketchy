@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import Sketchy
 
 /// Fill inset, sticker backing, variable marker, width stops, opacity, watercolor, and SVG arcs.
@@ -29,7 +30,7 @@ struct WhatsNewView: View {
                 }
                 .padding(.top)
 
-                section("Sticker backing", detail: "White, tinted, or grained paper behind the ink. Smoothness 1 follows the star. Torn chops the edge.") {
+                section("Sticker backing", detail: "White, tinted, grained, or image-masked paper behind the ink. Smoothness 1 follows the star. Torn chops the edge.") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 16) {
                             stickerSample("none", backing: nil)
@@ -68,6 +69,18 @@ struct WhatsNewView: View {
                                 color: UIColor(red: 0.96, green: 0.91, blue: 0.78, alpha: 1),
                                 texture: .paper(amount: 0.55, seed: 6)
                             )
+                        )
+                        stickerSample(
+                            "photo",
+                            backing: StickerBacking(
+                                width: 32,
+                                smoothness: 1,
+                                image: StickerImage(
+                                    image: UIImage(named: "watercolor-paper") ?? UIImage(),
+                                    placement: .fill
+                                )
+                            ),
+                            canvas: 168
                         )
                     }
                 }
@@ -279,7 +292,7 @@ struct WhatsNewView: View {
         }
     }
 
-    private func stickerSample(_ caption: String, backing: StickerBacking?) -> some View {
+    private func stickerSample(_ caption: String, backing: StickerBacking?, canvas: CGFloat = 120) -> some View {
         VStack(spacing: 8) {
             RoughView()
                 .stroke(ink)
@@ -291,8 +304,8 @@ struct WhatsNewView: View {
                 .roughness(1.35)
                 .seed(42)
                 .stickerBacking(backing)
-                .draw(Polygon(points: demoStar))
-                .frame(width: 120, height: 120)
+                .draw(Polygon(points: shiftedStar(in: canvas)))
+                .frame(width: canvas, height: canvas)
                 .padding(6)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -304,11 +317,12 @@ struct WhatsNewView: View {
         }
     }
 
-    private var demoStar: [Point] {
-        (0..<10).map { index in
+    private func shiftedStar(in canvas: CGFloat) -> [Point] {
+        let center = Float(canvas / 2)
+        return (0..<10).map { index in
             let angle = -Float.pi / 2 + Float(index) * .pi / 5
             let radius: Float = index.isMultiple(of: 2) ? 36 : 15
-            return Point(x: 60 + cos(angle) * radius, y: 60 + sin(angle) * radius)
+            return Point(x: center + cos(angle) * radius, y: center + sin(angle) * radius)
         }
     }
 

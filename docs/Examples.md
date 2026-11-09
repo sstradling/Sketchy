@@ -1036,7 +1036,7 @@ RoughView()
 
 ## Stickers
 
-A sheet behind the ink. Smoothness chooses the rough edge or the input silhouette. .smooth keeps corners, .fullySmooth() rounds the whole cut, and torn chops the margin. The slate rectangle is gallery chrome so the white paper shows. It is not part of the snippet.
+A sheet behind the ink. Width is the margin past the stroke. Smoothness chooses the rough edge or the input silhouette. .smooth keeps corners, .fullySmooth() rounds the whole cut, and torn chops the margin. Color and paper grain are separate. An image is masked by that sheet. SketchGroup shares one sheet. StickerShadow is optional and needs padding. The slate rectangle is gallery chrome so the white paper shows. It is not part of the snippet.
 
 ### Sticker star
 
@@ -1165,6 +1165,88 @@ RoughView()
     .seed(17)
     .stickerBacking(width: 22, smoothness: 1, edge: .fullySmooth())
     .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
+```
+
+### Image mask
+
+A watercolor-paper photo is masked by the sheet. The paper color shows through transparent pixels. Photo from Unsplash. The slate mat is gallery chrome.
+
+![Image mask](images/stickers/sticker-image.png)
+
+```swift
+let paper = UIImage(named: "watercolor-paper") ?? UIImage()
+RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.hachure)
+    .fillAngle(0)
+    .fillSpacing(3)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(21)
+    .stickerBacking(
+        width: 32,
+        smoothness: 1,
+        image: StickerImage(image: paper, placement: .fill)
+    )
+    .draw(EggShape(x: 92, y: 98, width: 72, height: 104, tilt: 0.42))
+```
+
+### Shared sheet
+
+SketchGroup gives both circles one sheet. sketchOffset moves the second circle. SwiftUI offset would not. The slate mat is gallery chrome.
+
+![Shared sheet](images/stickers/sticker-group.png)
+
+```swift
+SketchGroup {
+    RoughView()
+        .fill(Color(red: 0.18, green: 0.46, blue: 0.67))
+        .fillStyle(.hachure)
+        .fillAngle(0)
+        .fillSpacing(3)
+        .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+        .strokeWidth(2)
+        .seed(7)
+        .draw(Circle(x: 78, y: 96, diameter: 78))
+    SketchPart(
+        RoughView()
+            .fill(Color(red: 0.76, green: 0.32, blue: 0.28))
+            .fillStyle(.hachure)
+            .fillAngle(0)
+            .fillSpacing(3)
+            .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+            .strokeWidth(2)
+            .seed(7)
+            .draw(Circle(x: 78, y: 96, diameter: 62))
+    )
+    .sketchOffset(x: 34, y: 6)
+}
+.stickerBacking(width: 12, smoothness: 0.7, color: Color.white)
+.seed(7)
+```
+
+### Cutout shadow
+
+One shadow of the sheet. opacity, x, y, and radius are points. Leave padding or the view clips the blur. The slate mat is gallery chrome.
+
+![Cutout shadow](images/stickers/sticker-shadow.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.18, green: 0.46, blue: 0.67))
+    .fillStyle(.hachure)
+    .fillAngle(0)
+    .fillSpacing(3)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(11)
+    .stickerBacking(
+        width: 12,
+        smoothness: 0.8,
+        color: Color.white,
+        shadow: StickerShadow(opacity: 0.4, x: 0, y: 8, radius: 6, color: Color.black)
+    )
+    .draw(EggShape(x: 92, y: 84, width: 64, height: 86, tilt: 0.2))
 ```
 
 ## Seeding

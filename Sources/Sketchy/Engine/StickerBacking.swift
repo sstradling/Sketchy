@@ -87,6 +87,103 @@ public struct StickerTexture: Equatable, Hashable, Sendable {
     }
 }
 
+/// How a supplied image sits inside the sticker mask.
+public enum StickerImagePlacement: Equatable, Hashable, Sendable {
+    /// Repeat the image across the sheet. `StickerImage.scale` is the width of
+    /// one repeat in points. `0` uses the image's point width.
+    case tile
+
+    /// Stretch the image to the sheet's bounding box.
+    case stretch
+
+    /// Scale the image uniformly so it covers the bounding box. The mask crops it.
+    case fill
+}
+
+/// An image masked by the sticker silhouette.
+///
+/// The caller supplies a decoded `UIImage` (a PNG or any other format
+/// `UIImage` can read from memory). Sketchy does not fetch a URL. The sheet
+/// path, including torn and fully smooth edges and holes, is the mask. The
+/// base `StickerBacking.color` is painted first, so transparent pixels and
+/// `opacity` below 1 show that color. Paper fibers, when set, draw on top.
+///
+/// For `.tile`, `scale` is the repeat width in points. `0` uses the image's
+/// own point size. Widths below 4 points are raised to 4. A sheet that would
+/// need more than about 900 repeats is given a coarser repeat.
+/// For `.stretch` and `.fill`, `scale` multiplies the fitted size. `0` and `1`
+/// both mean "fit the bounds".
+public struct StickerImage: Equatable, Hashable {
+    /// Decoded image. Draw this; do not load it from the network.
+    public var image: UIImage
+
+    /// Tile, stretch, or aspect-fill.
+    public var placement: StickerImagePlacement
+
+    /// Tile width in points, or a multiplier for stretch and fill. See the type discussion.
+    public var scale: CGFloat
+
+    /// Strength of the image over the paper color, from 0 to 1.
+    public var opacity: CGFloat
+
+    public init(
+        image: UIImage,
+        placement: StickerImagePlacement = .tile,
+        scale: CGFloat = 0,
+        opacity: CGFloat = 1
+    ) {
+        self.image = image
+        self.placement = placement
+        self.scale = scale.isFinite && scale > 0 ? scale : 0
+        self.opacity = min(1, max(0, opacity))
+    }
+
+    /// Decodes PNG, JPEG, or another `UIImage` format from memory.
+    /// Returns nil when `data` is not an image.
+    public init?(
+        data: Data,
+        placement: StickerImagePlacement = .tile,
+        scale: CGFloat = 0,
+        opacity: CGFloat = 1
+    ) {
+        guard let image = UIImage(data: data) else { return nil }
+        self.init(image: image, placement: placement, scale: scale, opacity: opacity)
+    }
+
+    /// Repeat width in points after the 4-point minimum. Ignores the 900-repeat cap.
+    var resolvedTileWidth: CGFloat {
+        let natural = max(image.size.width, 1)
+        return max(4, scale > 0 ? scale : natural)
+    }
+
+    /// Multiplier for `.stretch` and `.fill`. `0` means 1.
+    var resolvedFitScale: CGFloat {
+        scale > 0 ? scale : 1
+    }
+
+    public static func == (lhs: StickerImage, rhs: StickerImage) -> Bool {
+        lhs.placement == rhs.placement
+            && lhs.scale == rhs.scale
+            && lhs.opacity == rhs.opacity
+            && lhs.image.size == rhs.image.size
+            && lhs.encodedBytes == rhs.encodedBytes
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(placement)
+        hasher.combine(scale)
+        hasher.combine(opacity)
+        hasher.combine(image.size.width)
+        hasher.combine(image.size.height)
+        hasher.combine(encodedBytes)
+    }
+
+    /// PNG bytes when the image can be encoded. Equality uses the whole buffer.
+    private var encodedBytes: Data? {
+        image.pngData()
+    }
+}
+
 /// A drop shadow of the finished cutout, not of the ink.
 ///
 /// Leave `StickerBacking.shadow` nil and nothing is added. `opacity` `0`, or
@@ -177,6 +274,9 @@ public struct StickerShadow: Equatable, Hashable, Sendable {
 /// does not emit a self-intersecting fill. The torn depth is reduced first.
 /// If the outward offset still crosses, that closed contour is a round
 /// dilation (filled centerline plus a round stroke) rather than a mitered ring.
+/// An image on that fallback is masked to the interior and to the stroke
+/// margin, and is kept out of hole interiors. Fibers on that fallback still
+/// clip to the interior only.
 public struct StickerBacking: Equatable, Hashable {
     /// Margin past the nominal stroke, in points. `0` draws no paper.
     public var width: CGFloat
@@ -192,8 +292,11 @@ public struct StickerBacking: Equatable, Hashable {
     /// corners stay sharp. `.torn` keeps the chopped facets.
     public var edge: StickerEdge
 
-    /// Fibers on the sheet. `nil` is a flat color.
+    /// Fibers on the sheet. `nil` draws no fibers. Independent of `image`.
     public var texture: StickerTexture?
+
+    /// Image masked by the sheet. `nil` is the flat color, plus fibers when set.
+    public var image: StickerImage?
 
     private var paperColor: RoughColor
 
@@ -212,12 +315,14 @@ public struct StickerBacking: Equatable, Hashable {
         edge: StickerEdge = .smooth,
         color: UIColor = .white,
         texture: StickerTexture? = nil,
+        image: StickerImage? = nil,
         shadow: StickerShadow? = nil
     ) {
         self.width = max(0, width)
         self.smoothness = min(1, max(0, smoothness))
         self.edge = Self.clamped(edge)
         self.texture = texture
+        self.image = image
         self.paperColor = RoughColor(uiColor: color)
         self.shadow = shadow
     }

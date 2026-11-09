@@ -74,9 +74,10 @@ import Sketchy
 | `CrayonStyle` | Wax-crayon grain, edge, and seed | Used by `BrushProfile.crayon` |
 | `OpacityProfile` | Opacity along a stroke | Uniform, values, stops, or seeded noise |
 | `WatercolorStyle` | Wet-wash pigment, rim, and seed | Used by `BrushProfile.watercolor` and `.fillStyle(.watercolor)` |
-| `StickerBacking` | Die-cut paper behind a shape | `nil` draws none. Width, smoothness, smooth or torn edge |
-| `StickerEdge` | Paper edge | `.smooth` or `.torn(StickerTear)` |
+| `StickerBacking` | Die-cut paper behind a shape | `nil` draws none. Width, smoothness, edge, color, fibers, image |
+| `StickerEdge` | Paper edge | `.smooth`, `.fullySmooth()`, or `.torn(StickerTear)` |
 | `StickerTear` | Chopped-edge depth, length, jaggedness | Depth `0` follows the backing width |
+| `StickerImage` | Image masked by the sheet | Tile, stretch, or fill. Caller supplies a decoded image |
 | `NativeStrokeOutline` | Filled outline of a uniform-width stroke | `NativeStrokeOutline.path(from:width:cap:join:miterLimit:)` |
 | `AnimationConfig` | Animation settings | Steps, speed, variance |
 
@@ -276,6 +277,7 @@ func stickerBacking(
     edge: StickerEdge = .smooth,
     color: Color = .white,
     texture: StickerTexture? = nil,
+    image: StickerImage? = nil,
     shadow: StickerShadow? = nil
 ) -> Self
 
@@ -285,6 +287,7 @@ func stickerBacking(
     edge: StickerEdge = .smooth,
     color: UIColor,
     texture: StickerTexture? = nil,
+    image: StickerImage? = nil,
     shadow: StickerShadow? = nil
 ) -> Self
 ```
@@ -1099,7 +1102,8 @@ Color alone, grain on white, or both:
 | `smoothness` | `0` | `0` follows the rough outline. `1` follows the input silhouette. Clamped to `0...1` |
 | `edge` | `.smooth` | `.smooth` keeps corners. `.fullySmooth()` rounds the whole edge. `.torn(StickerTear())` chops it |
 | `color` | white | `UIColor`, or `Color` on the view modifier. Alpha is honored |
-| `texture` | `nil` | `StickerTexture` fibers inside the sheet. `nil` is flat color |
+| `texture` | `nil` | `StickerTexture` fibers inside the sheet. `nil` draws no fibers |
+| `image` | `nil` | `StickerImage` masked by the sheet. `nil` leaves the color and fibers |
 | `shadow` | `nil` | `StickerShadow` of the finished sheet. `nil` draws none |
 
 `width` is the paper visible beyond the ink. The sheet extends `width + strokeWidth / 2` from the outline centerline. Torn chops use `Options.seed` and do not advance the sketch's random sequence. A `nil` seed uses a fixed tear seed. Grain uses `StickerTexture.seed`, then `Options.seed`, then a fixed seed. It does not advance the sketch sequence either.
@@ -1140,6 +1144,36 @@ One drop shadow of the solid sheet. It is not a SwiftUI `.shadow` on the view, s
 | `seed` | `nil` | Repeats the fibers. `nil` follows `Options.seed` |
 
 `.paper()` and `.paper(amount:scale:seed:)` build that struct. Fibers are clipped to the sheet with the even-odd rule, so a hole stays clear. Grain does not change the sketch, and it is independent of smooth versus torn.
+
+### StickerImage
+
+Pass a decoded `UIImage`. Sketchy does not fetch a URL. `StickerImage(data:)` decodes PNG, JPEG, or another format `UIImage` can read, and returns nil when the bytes are not an image.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `image` | none | Decoded image. The sheet silhouette is the mask |
+| `placement` | `.tile` | `.tile` repeats. `.stretch` fills the bounding box. `.fill` aspect-fills it |
+| `scale` | `0` | Tile: repeat width in points. `0` uses the image point size. Minimum 4. Stretch and fill: multiplier of the fitted size. `0` means 1 |
+| `opacity` | `1` | `0...1`. The paper `color` shows through |
+
+The color is painted first. Transparent image pixels and an opacity below 1 reveal it. Fibers, when also set, draw on top of the image. The same mask is used for `.smooth`, `.fullySmooth`, and `.torn`, for holes, and for a `SketchGroup` sheet. The image is painted after `StickerShadow`, so the picture does not cast its own shadow. A sheet that would need more than about 900 tiles is given a coarser repeat. When the offset falls back to a round dilation, the image covers the interior and the stroke margin and is kept out of hole interiors. Fibers on that fallback still clip to the interior only.
+
+```swift
+let paper = UIImage(named: "watercolor-paper") ?? UIImage()
+RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.hachure)
+    .fillAngle(0)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .stickerBacking(
+        width: 32,
+        smoothness: 1,
+        image: StickerImage(image: paper, placement: .fill)
+    )
+    .circle()
+```
+
+The gallery and the demo use a square crop of a watercolor-paper photograph. Photo from Unsplash: [images.unsplash.com/photo-1604147706283-d7119b5b822c](https://images.unsplash.com/photo-1604147706283-d7119b5b822c). Free under the [Unsplash License](https://unsplash.com/license). The photographer's name could not be verified from the public photo page.
 
 ### StickerTear
 
@@ -1638,7 +1672,7 @@ Engine.shared.clearCaches()
 ## Version Information
 
 - **Package:** Sketchy
-- **Version:** 1.4.2
+- **Version:** 1.5.0
 - **Minimum iOS:** 17.0
 - **Swift:** 5.9+
 - **Rendering:** Native Swift (no JavaScript bridge)

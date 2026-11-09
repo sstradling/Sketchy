@@ -757,14 +757,16 @@ public extension RoughView {
     /// `smoothness` `0` follows the rough edge. `1` removes fine wobble and
     /// keeps the silhouette. `edge` is `.smooth` or `.torn()`. `color`
     /// defaults to white. `texture` adds paper grain inside the sheet.
-    /// `shadow` is a drop shadow of that sheet. Nil draws none.
-    /// Pass `Color.white` or `UIColor.white` when both overloads are visible.
+    /// `image` is masked by that same sheet. `shadow` is a drop shadow of
+    /// the sheet. Nil draws none. Pass `Color.white` or `UIColor.white`
+    /// when both overloads are visible.
     func stickerBacking(
         width: CGFloat,
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: Color = .white,
         texture: StickerTexture? = nil,
+        image: StickerImage? = nil,
         shadow: StickerShadow? = nil
     ) -> Self {
         stickerBacking(StickerBacking(
@@ -773,6 +775,7 @@ public extension RoughView {
             edge: edge,
             color: UIColor(color),
             texture: texture,
+            image: image,
             shadow: shadow
         ))
     }
@@ -781,12 +784,14 @@ public extension RoughView {
     ///
     /// `color` has no default here, so a bare `.white` is not ambiguous with
     /// the SwiftUI `Color` overload. `texture` adds paper grain.
+    /// `image` is masked by the sheet.
     func stickerBacking(
         width: CGFloat,
         smoothness: CGFloat = 0,
         edge: StickerEdge = .smooth,
         color: UIColor,
         texture: StickerTexture? = nil,
+        image: StickerImage? = nil,
         shadow: StickerShadow? = nil
     ) -> Self {
         stickerBacking(StickerBacking(
@@ -795,6 +800,7 @@ public extension RoughView {
             edge: edge,
             color: color,
             texture: texture,
+            image: image,
             shadow: shadow
         ))
     }

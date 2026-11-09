@@ -87,6 +87,7 @@ enum StickerBackingBuilder {
                 outward: outward,
                 finish: finish,
                 texture: backing.texture,
+                image: backing.image,
                 seed: options.seed,
                 color: paper,
                 uiColor: backing.color,
@@ -129,7 +130,9 @@ enum StickerBackingBuilder {
                     ribbonCommand = ribbonCommand.withSheetShadow(shadow)
                 }
                 commands.append(ribbonCommand)
-                if let texture = backing.texture, texture.amount > 0.01 {
+                let wantsImage = backing.image != nil && (backing.image?.opacity ?? 0) > 0.001
+                let wantsGrain = (backing.texture?.amount ?? 0) > 0.01
+                if wantsImage || wantsGrain {
                     let clip = NativeStrokeOutline.path(
                         from: center,
                         width: ribbon,
@@ -137,12 +140,17 @@ enum StickerBackingBuilder {
                         join: torn ? .bevel : .round,
                         miterLimit: 4
                     )
-                    commands.append(contentsOf: textureCommands(
-                        clip: clip,
-                        texture: texture,
-                        seed: options.seed,
-                        base: backing.color
-                    ))
+                    if let imageCommand = imageCommand(mask: clip, image: backing.image, fillRule: .winding) {
+                        commands.append(imageCommand)
+                    }
+                    if wantsGrain, let texture = backing.texture {
+                        commands.append(contentsOf: textureCommands(
+                            clip: clip,
+                            texture: texture,
+                            seed: options.seed,
+                            base: backing.color
+                        ))
+                    }
                 }
             }
         }
@@ -169,6 +177,7 @@ enum StickerBackingBuilder {
             outward: outward,
             finish: finish,
             texture: backing.texture,
+            image: backing.image,
             seed: seed,
             color: paper,
             uiColor: backing.color,
@@ -236,14 +245,16 @@ enum StickerBackingBuilder {
         }
     }
 
-    /// Fills the offset rings. A ring that cannot be offset without crossing
-    /// itself falls back, together with the other closed rings, to a round
-    /// dilation so a hole and its outline stay one sheet.
+    /// Fills the offset rings. An outer ring that cannot be offset without
+    /// crossing itself falls back, together with the other closed rings, to a
+    /// round dilation so a hole and its outline stay one sheet. A hole smaller
+    /// than the margin keeps its opening so the outside corners stay square.
     private static func closedCommands(
         _ lines: [Centerline],
         outward: CGFloat,
         finish: PaperFinish,
         texture: StickerTexture?,
+        image: StickerImage?,
         seed: UInt64?,
         color: Color,
         uiColor: UIColor,
@@ -281,6 +292,12 @@ enum StickerBackingBuilder {
                 continue
             }
             guard var ring = offsetClosed(line.points, by: signed) else {
+                // A hole smaller than the margin cannot shrink. Keep that opening
+                // and still offset the outside, instead of rounding the whole sheet.
+                if signed < 0 {
+                    offsets.append(line.points)
+                    continue
+                }
                 failed = true
                 break
             }
@@ -303,6 +320,7 @@ enum StickerBackingBuilder {
                 color: color,
                 uiColor: uiColor,
                 texture: texture,
+                image: image,
                 seed: seed,
                 shadow: shadow
             )
@@ -334,8 +352,33 @@ enum StickerBackingBuilder {
             stroke = stroke.withSheetShadow(shadow)
         }
         var commands = [fill, stroke]
-        // The round stroke supplies the margin. Grain clips to the interior
-        // sheet; the margin stroke stays a flat color when offset failed.
+        // The round stroke supplies the margin. The image covers that stroke
+        // as well as the interior, and an inverse hole clip keeps the opening clear.
+        // The image is not part of the shadow layer.
+        if image != nil {
+            if let interior = imageCommand(mask: center, image: image, fillRule: .evenOdd) {
+                commands.append(interior)
+            }
+            let ribbon = NativeStrokeOutline.path(
+                from: center,
+                width: dilation,
+                cap: .round,
+                join: .round,
+                miterLimit: 1
+            )
+            let holes = holeClip(lines: lines, points: lines.map(\.points))
+            if let margin = imageCommand(
+                mask: ribbon,
+                image: image,
+                fillRule: .winding,
+                clipPath: holes,
+                inverseClip: holes != nil
+            ) {
+                commands.append(margin)
+            }
+        }
+        // Grain still clips to the interior. The margin stroke stays flat when
+        // only fibers are set.
         if let texture, texture.amount > 0.01 {
             commands.append(contentsOf: textureCommands(
                 clip: center,
@@ -353,6 +396,7 @@ enum StickerBackingBuilder {
         color: Color,
         uiColor: UIColor,
         texture: StickerTexture?,
+        image: StickerImage?,
         seed: UInt64?,
         shadow: SheetShadow?
     ) -> [RoughRenderCommand] {
@@ -361,6 +405,9 @@ enum StickerBackingBuilder {
             fill = fill.withSheetShadow(shadow)
         }
         var commands = [fill]
+        if let painted = imageCommand(mask: paper, image: image, fillRule: .evenOdd) {
+            commands.append(painted)
+        }
         if let texture, texture.amount > 0.01 {
             commands.append(contentsOf: textureCommands(
                 clip: paper,
@@ -401,6 +448,43 @@ enum StickerBackingBuilder {
             }
         }
         return segmentsIntersect(best) ? ring : best
+    }
+
+    /// One image fill masked by `mask`. Nil when there is no image or it is invisible.
+    ///
+    /// `clipPath` intersects the mask. Inverse clipping is how the fallback
+    /// stroke margin is kept out of a hole.
+    private static func imageCommand(
+        mask: SwiftUI.Path,
+        image: StickerImage?,
+        fillRule: RoughFillRule,
+        clipPath: SwiftUI.Path? = nil,
+        inverseClip: Bool = false
+    ) -> RoughRenderCommand? {
+        guard let image, image.opacity > 0.001, image.image.cgImage != nil else { return nil }
+        guard mask.boundingRect.width > 0.5, mask.boundingRect.height > 0.5 else { return nil }
+        return RoughRenderCommand(
+            path: mask,
+            style: .fill(.clear),
+            clipPath: clipPath,
+            inverseClip: inverseClip,
+            fillRule: fillRule,
+            stickerImage: image
+        )
+    }
+
+    /// Filled hole rings. The fallback image uses this as an inverse clip.
+    private static func holeClip(lines: [Centerline], points: [[CGPoint]]) -> SwiftUI.Path? {
+        var path = SwiftUI.Path()
+        var found = false
+        for index in lines.indices {
+            guard !nestingDepth(index, in: lines).isMultiple(of: 2) else { continue }
+            let ring = index < points.count ? points[index] : lines[index].points
+            guard ring.count >= 3 else { continue }
+            path.addPath(contourPath(ring, closed: true, curved: false, continuous: false))
+            found = true
+        }
+        return found ? path : nil
     }
 
     /// Short fibers inside `clip`. Even-odd clip keeps holes empty.
@@ -1118,7 +1202,10 @@ enum StickerBackingBuilder {
         curved: Bool,
         continuous: Bool = false
     ) -> SwiftUI.Path {
-        let ring = clean(points, dropClosingDuplicate: closed)
+        var ring = clean(points, dropClosingDuplicate: closed)
+        if curved, !continuous, closed {
+            ring = unchamfer(ring)
+        }
         if continuous, ring.count >= 4 {
             return closed ? closedSpline(ring) : openSpline(ring)
         }
@@ -1148,6 +1235,39 @@ enum StickerBackingBuilder {
             path.closeSubpath()
         }
         return path
+    }
+
+    /// Puts a sharp corner back when resampling replaced it with one short edge.
+    ///
+    /// The two turns on that edge are each too small to count as a corner, so
+    /// the spline would bulge. Their sum is the original corner.
+    private static func unchamfer(_ points: [CGPoint]) -> [CGPoint] {
+        let count = points.count
+        guard count >= 5 else { return points }
+        var skip = [Bool](repeating: false, count: count)
+        var replacement = [CGPoint?](repeating: nil, count: count)
+        for index in 0..<count {
+            if skip[index] { continue }
+            let previous = points[(index + count - 1) % count]
+            let current = points[index]
+            let next = points[(index + 1) % count]
+            let after = points[(index + 2) % count]
+            let span = distance(current, next)
+            let firstTurn = abs(turning(previous, current, next))
+            let secondTurn = abs(turning(current, next, after))
+            guard span < 14, firstTurn < cornerTurn, secondTurn < cornerTurn,
+                  firstTurn + secondTurn >= cornerTurn,
+                  let hit = intersection(previous, current, next, after),
+                  distance(hit, current) < 18, distance(hit, next) < 18 else { continue }
+            replacement[index] = hit
+            skip[(index + 1) % count] = true
+        }
+        var result: [CGPoint] = []
+        result.reserveCapacity(count)
+        for index in 0..<count where !skip[index] {
+            result.append(replacement[index] ?? points[index])
+        }
+        return result.count >= 4 ? result : points
     }
 
     private static func isCorner(_ points: [CGPoint], index: Int, closed: Bool) -> Bool {
