@@ -1166,7 +1166,7 @@ RoughView()
     .fillAngle(0)
     .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
     .stickerBacking(
-        width: 16,
+        width: 32,
         smoothness: 1,
         image: StickerImage(image: paper, placement: .fill)
     )

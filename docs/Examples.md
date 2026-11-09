@@ -1184,7 +1184,7 @@ RoughView()
     .strokeWidth(2)
     .seed(21)
     .stickerBacking(
-        width: 16,
+        width: 32,
         smoothness: 1,
         image: StickerImage(image: paper, placement: .fill)
     )

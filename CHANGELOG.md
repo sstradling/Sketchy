@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A sticker sheet keeps a square corner when `.smooth` is used. If a hole is too small to take the full margin, that opening stays and the outside corners are not rounded into a squircle.
 - `StickerImage` masks a decoded `UIImage` with the sticker sheet. `.tile`, `.stretch`, and `.fill` place it. `scale` and `opacity` adjust the repeat or the fit and how strongly it covers the paper color. Paper fibers stay available and still default to off. The image is not loaded from a URL. It follows smooth, fully smooth, and torn edges, holes, `SketchGroup`, and sits on top of the sheet color without casting its own `StickerShadow`.
 
 ## [1.4.2] - 2026-11-07

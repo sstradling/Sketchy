@@ -88,6 +88,42 @@ final class StickerBackingTests: XCTestCase {
         }
     }
 
+    func testSmoothRectangleKeepsASharpCorner() throws {
+        let size = CGSize(width: 220, height: 180)
+        let shape = Rectangle(x: 40, y: 36, width: 100, height: 60)
+        let sharp = try paperPath(shape, backing: StickerBacking(width: 18, smoothness: 1, edge: .smooth), size: size)
+        let rounded = try paperPath(shape, backing: StickerBacking(width: 18, smoothness: 1, edge: .fullySmooth()), size: size)
+        let sharpGap = cornerGap(sharp)
+        let roundedGap = cornerGap(rounded)
+        XCTAssertLessThan(sharpGap, 5, "smooth corner gap \(sharpGap)")
+        XCTAssertGreaterThan(roundedGap, sharpGap + 6, "fully smooth gap \(roundedGap)")
+
+        let square = Sketchy.Path(d: "M40 36 H150 V146 H40 Z")
+        let pathSheet = try paperPath(
+            square,
+            backing: StickerBacking(width: 32, smoothness: 1, edge: .smooth),
+            size: CGSize(width: 220, height: 220)
+        )
+        XCTAssertLessThan(cornerGap(pathSheet), 5, "svg square corner gap")
+
+        var grouped = RoughView().roughness(0).bowing(0).maxRandomnessOffset(0).strokeWidth(2).seed(9)
+        grouped = grouped.draw(Sketchy.Path(d: "M40 36 H150 V146 H40 Z M78 74 H112 V112 H78 Z"))
+        let groupBacking = StickerBacking(width: 32, smoothness: 1, edge: .smooth)
+        let lines = SketchGroupRenderer.silhouetteLines(
+            parts: [SketchPart(grouped)],
+            backing: groupBacking,
+            size: CGSize(width: 240, height: 240)
+        )
+        let sheet = StickerBackingBuilder.commands(
+            for: lines,
+            outward: groupBacking.width,
+            backing: groupBacking,
+            seed: 9
+        )
+        let groupGap = cornerGap(sheet[0].path)
+        XCTAssertLessThan(groupGap, 6, "group square corner gap \(groupGap)")
+    }
+
     func testWiderBackingIsLarger() throws {
         let size = CGSize(width: 220, height: 180)
         let shape = Rectangle(x: 40, y: 36, width: 100, height: 60)
@@ -625,6 +661,90 @@ final class StickerBackingTests: XCTestCase {
     private func drawing(_ shape: Drawable, options: Options, size: CGSize) throws -> Drawing {
         let generator = Engine().generator(size: size)
         return try XCTUnwrap(generator.generate(drawable: shape, options: options))
+    }
+
+    /// Distance from the filled outline's corner to the corner of its bounds.
+    /// Control points are not the outline. A square sheet is near 0. A squircle leaves a gap.
+    private func cornerGap(_ path: SwiftUI.Path) -> CGFloat {
+        let samples = outlineSamples(path)
+        guard let first = samples.first else { return .greatestFiniteMagnitude }
+        var minX = first.x
+        var minY = first.y
+        for point in samples {
+            minX = min(minX, point.x)
+            minY = min(minY, point.y)
+        }
+        var nearest = CGFloat.greatestFiniteMagnitude
+        for point in samples {
+            nearest = min(nearest, hypot(point.x - minX, point.y - minY))
+        }
+        return nearest
+    }
+
+    private func outlineSamples(_ path: SwiftUI.Path) -> [CGPoint] {
+        var samples: [CGPoint] = []
+        var cursor = CGPoint.zero
+        path.cgPath.applyWithBlock { element in
+            let kind = element.pointee.type
+            let points = element.pointee.points
+            if kind == .moveToPoint {
+                cursor = points[0]
+                samples.append(cursor)
+            } else if kind == .addLineToPoint {
+                samples.append(points[0])
+                cursor = points[0]
+            } else if kind == .addQuadCurveToPoint {
+                samples.append(contentsOf: Self.quadSamples(cursor, points[0], points[1]))
+                cursor = points[1]
+            } else if kind == .addCurveToPoint {
+                samples.append(contentsOf: Self.cubicSamples(cursor, points[0], points[1], points[2]))
+                cursor = points[2]
+            }
+        }
+        return samples
+    }
+
+    private static func quadSamples(_ start: CGPoint, _ control: CGPoint, _ end: CGPoint) -> [CGPoint] {
+        var points: [CGPoint] = []
+        for step in 1...8 {
+            let t = CGFloat(step) / 8
+            let u = 1 - t
+            points.append(CGPoint(
+                x: u * u * start.x + 2 * u * t * control.x + t * t * end.x,
+                y: u * u * start.y + 2 * u * t * control.y + t * t * end.y
+            ))
+        }
+        return points
+    }
+
+    private static func cubicSamples(
+        _ start: CGPoint,
+        _ control1: CGPoint,
+        _ control2: CGPoint,
+        _ end: CGPoint
+    ) -> [CGPoint] {
+        var points: [CGPoint] = []
+        for step in 1...8 {
+            let t = CGFloat(step) / 8
+            let u = 1 - t
+            let uu = u * u
+            let tt = t * t
+            points.append(CGPoint(
+                x: uu * u * start.x + 3 * uu * t * control1.x + 3 * u * tt * control2.x + tt * t * end.x,
+                y: uu * u * start.y + 3 * uu * t * control1.y + 3 * u * tt * control2.y + tt * t * end.y
+            ))
+        }
+        return points
+    }
+
+    private func paperPath(_ shape: Drawable, backing: StickerBacking, size: CGSize) throws -> SwiftUI.Path {
+        var options = cleanOptions()
+        options.stickerBacking = backing
+        let drawing = try drawing(shape, options: options, size: size)
+        let command = try XCTUnwrap(
+            SwiftUIRenderer().commands(for: drawing, options: options, in: size).first
+        )
+        return command.path
     }
 
     private func paperBounds(_ shape: Drawable, width: CGFloat, size: CGSize) throws -> CGRect {

@@ -245,9 +245,10 @@ enum StickerBackingBuilder {
         }
     }
 
-    /// Fills the offset rings. A ring that cannot be offset without crossing
-    /// itself falls back, together with the other closed rings, to a round
-    /// dilation so a hole and its outline stay one sheet.
+    /// Fills the offset rings. An outer ring that cannot be offset without
+    /// crossing itself falls back, together with the other closed rings, to a
+    /// round dilation so a hole and its outline stay one sheet. A hole smaller
+    /// than the margin keeps its opening so the outside corners stay square.
     private static func closedCommands(
         _ lines: [Centerline],
         outward: CGFloat,
@@ -291,6 +292,12 @@ enum StickerBackingBuilder {
                 continue
             }
             guard var ring = offsetClosed(line.points, by: signed) else {
+                // A hole smaller than the margin cannot shrink. Keep that opening
+                // and still offset the outside, instead of rounding the whole sheet.
+                if signed < 0 {
+                    offsets.append(line.points)
+                    continue
+                }
                 failed = true
                 break
             }
@@ -1195,7 +1202,10 @@ enum StickerBackingBuilder {
         curved: Bool,
         continuous: Bool = false
     ) -> SwiftUI.Path {
-        let ring = clean(points, dropClosingDuplicate: closed)
+        var ring = clean(points, dropClosingDuplicate: closed)
+        if curved, !continuous, closed {
+            ring = unchamfer(ring)
+        }
         if continuous, ring.count >= 4 {
             return closed ? closedSpline(ring) : openSpline(ring)
         }
@@ -1225,6 +1235,39 @@ enum StickerBackingBuilder {
             path.closeSubpath()
         }
         return path
+    }
+
+    /// Puts a sharp corner back when resampling replaced it with one short edge.
+    ///
+    /// The two turns on that edge are each too small to count as a corner, so
+    /// the spline would bulge. Their sum is the original corner.
+    private static func unchamfer(_ points: [CGPoint]) -> [CGPoint] {
+        let count = points.count
+        guard count >= 5 else { return points }
+        var skip = [Bool](repeating: false, count: count)
+        var replacement = [CGPoint?](repeating: nil, count: count)
+        for index in 0..<count {
+            if skip[index] { continue }
+            let previous = points[(index + count - 1) % count]
+            let current = points[index]
+            let next = points[(index + 1) % count]
+            let after = points[(index + 2) % count]
+            let span = distance(current, next)
+            let firstTurn = abs(turning(previous, current, next))
+            let secondTurn = abs(turning(current, next, after))
+            guard span < 14, firstTurn < cornerTurn, secondTurn < cornerTurn,
+                  firstTurn + secondTurn >= cornerTurn,
+                  let hit = intersection(previous, current, next, after),
+                  distance(hit, current) < 18, distance(hit, next) < 18 else { continue }
+            replacement[index] = hit
+            skip[(index + 1) % count] = true
+        }
+        var result: [CGPoint] = []
+        result.reserveCapacity(count)
+        for index in 0..<count where !skip[index] {
+            result.append(replacement[index] ?? points[index])
+        }
+        return result.count >= 4 ? result : points
     }
 
     private static func isCorner(_ points: [CGPoint], index: Int, closed: Bool) -> Bool {

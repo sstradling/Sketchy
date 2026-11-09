@@ -34,7 +34,7 @@ final class StickerBackingPreviewTests: XCTestCase {
         try write(fullEgg, name: "sticker-fully-smooth-egg-closeup.png", width: 760, height: 900, to: directory)
         try write(starModes, name: "sticker-fully-smooth-star.png", width: 860, height: 520, to: directory)
         try write(smoothCompound, name: "sticker-fully-smooth-compound.png", width: 860, height: 520, to: directory)
-        try write(imageCard, name: "sticker-image-texture.png", width: 1100, height: 820, to: directory)
+        try write(imageCard, name: "sticker-image-texture.png", width: 980, height: 430, to: directory)
         try write(shadowCard, name: "sticker-shadow-compare.png", width: 980, height: 520, to: directory)
     }
 
@@ -223,7 +223,9 @@ final class StickerBackingPreviewTests: XCTestCase {
                 .fillSpacing(3)
                 .stroke(ink)
                 .strokeWidth(2)
-                .roughness(0.8)
+                .roughness(0)
+                .bowing(0)
+                .maxRandomnessOffset(0)
                 .seed(9)
                 .draw(Sketchy.Path(d: "M40 36 H150 V146 H40 Z M78 74 H112 V112 H78 Z"))
         }
@@ -370,26 +372,26 @@ final class StickerBackingPreviewTests: XCTestCase {
 
     private var imageCard: some View {
         let paper = WatercolorPaperFixture.image() ?? UIImage()
-        return sizedCard("Watercolor paper masked to the sheet. Smooth, torn, and a hole.", width: 1100, height: 820) {
-            HStack(alignment: .top, spacing: 18) {
-                imageSample("Smooth, filled", backing: StickerBacking(
-                    width: 16,
+        return sizedCard("Watercolor paper masked to the sheet. Smooth, torn, and a square hole.", width: 980, height: 430) {
+            HStack(alignment: .top, spacing: 12) {
+                imageSample("Smooth, filled", compact: true, backing: StickerBacking(
+                    width: 32,
                     smoothness: 1,
                     edge: .smooth,
                     color: UIColor.white,
                     image: StickerImage(image: paper, placement: .fill, opacity: 1)
                 ), shape: .egg)
-                imageSample("Torn, filled", backing: StickerBacking(
-                    width: 16,
+                imageSample("Torn, filled", compact: true, backing: StickerBacking(
+                    width: 32,
                     smoothness: 0.55,
                     edge: .torn(StickerTear(depth: 8, length: 18, jaggedness: 0.35)),
                     color: UIColor.white,
                     image: StickerImage(image: paper, placement: .fill, opacity: 1)
                 ), shape: .egg)
-                imageSample("Hole, fully smooth", backing: StickerBacking(
-                    width: 12,
-                    smoothness: 0.9,
-                    edge: .fullySmooth(),
+                imageSample("Hole, smooth", compact: true, backing: StickerBacking(
+                    width: 32,
+                    smoothness: 1,
+                    edge: .smooth,
                     color: UIColor.white,
                     image: StickerImage(image: paper, placement: .fill, opacity: 1)
                 ), shape: .donut)
@@ -422,7 +424,12 @@ final class StickerBackingPreviewTests: XCTestCase {
         case donut
     }
 
-    private func imageSample(_ label: String, backing: StickerBacking, shape: ImageSampleShape) -> some View {
+    private func imageSample(
+        _ label: String,
+        compact: Bool = false,
+        backing: StickerBacking,
+        shape: ImageSampleShape
+    ) -> some View {
         let drawing: AnyView = {
             switch shape {
             case .egg:
@@ -434,16 +441,16 @@ final class StickerBackingPreviewTests: XCTestCase {
         return VStack(spacing: 0) {
             drawing
                 .frame(width: 210, height: 230)
-                .padding(.top, 18)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 56)
+                .padding(.top, compact ? 8 : 18)
+                .padding(.horizontal, compact ? 16 : 24)
+                .padding(.bottom, compact ? 16 : 56)
             Text(label)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(Color(white: 0.93))
                 .multilineTextAlignment(.center)
-                .frame(width: 240, height: 52, alignment: .top)
+                .frame(width: compact ? 230 : 240, height: compact ? 36 : 52, alignment: .top)
         }
-        .frame(width: 280, height: 380, alignment: .top)
+        .frame(width: compact ? 250 : 280, height: compact ? 310 : 380, alignment: .top)
     }
 
     private var starModes: some View {

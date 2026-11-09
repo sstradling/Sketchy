@@ -73,13 +73,14 @@ struct WhatsNewView: View {
                         stickerSample(
                             "photo",
                             backing: StickerBacking(
-                                width: 10,
+                                width: 32,
                                 smoothness: 1,
                                 image: StickerImage(
                                     image: UIImage(named: "watercolor-paper") ?? UIImage(),
                                     placement: .fill
                                 )
-                            )
+                            ),
+                            canvas: 168
                         )
                     }
                 }
@@ -291,7 +292,7 @@ struct WhatsNewView: View {
         }
     }
 
-    private func stickerSample(_ caption: String, backing: StickerBacking?) -> some View {
+    private func stickerSample(_ caption: String, backing: StickerBacking?, canvas: CGFloat = 120) -> some View {
         VStack(spacing: 8) {
             RoughView()
                 .stroke(ink)
@@ -303,8 +304,8 @@ struct WhatsNewView: View {
                 .roughness(1.35)
                 .seed(42)
                 .stickerBacking(backing)
-                .draw(Polygon(points: demoStar))
-                .frame(width: 120, height: 120)
+                .draw(Polygon(points: shiftedStar(in: canvas)))
+                .frame(width: canvas, height: canvas)
                 .padding(6)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -316,11 +317,12 @@ struct WhatsNewView: View {
         }
     }
 
-    private var demoStar: [Point] {
-        (0..<10).map { index in
+    private func shiftedStar(in canvas: CGFloat) -> [Point] {
+        let center = Float(canvas / 2)
+        return (0..<10).map { index in
             let angle = -Float.pi / 2 + Float(index) * .pi / 5
             let radius: Float = index.isMultiple(of: 2) ? 36 : 15
-            return Point(x: 60 + cos(angle) * radius, y: 60 + sin(angle) * radius)
+            return Point(x: center + cos(angle) * radius, y: center + sin(angle) * radius)
         }
     }
 
