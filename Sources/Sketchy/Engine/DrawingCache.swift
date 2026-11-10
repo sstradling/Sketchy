@@ -86,6 +86,7 @@ public struct DrawingCacheKey: Hashable {
         hasher.combine(options.contourEasing)
         hasher.combine(options.contourFalloff)
         hasher.combine(options.contourDrift)
+        hasher.combine(options.washPasses)
         hasher.combine(options.seed)
         return hasher.finalize()
     }

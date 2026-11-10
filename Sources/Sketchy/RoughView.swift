@@ -383,6 +383,16 @@ public extension RoughView {
         return v
     }
 
+    /// Crayon-wash bands. `.wash` uses `WashPass.sky` when this is nil.
+    ///
+    /// On `.contour`, the bands trim and bow each contour stroke and set its width.
+    /// The base direction is `fillAngle`.
+    func washPasses(_ passes: [WashPass]?) -> Self {
+        var v = self
+        v.options.washPasses = passes
+        return v
+    }
+
     /// Scrolls a contour fill along `angle` at `speed` points per second.
     ///
     /// The stroke wobble stays with each seeded slot and the field wraps.

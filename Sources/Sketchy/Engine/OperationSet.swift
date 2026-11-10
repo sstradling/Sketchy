@@ -23,18 +23,31 @@ public struct OperationSet {
     /// here. `nil` draws at the normal fill weight.
     public let fillLineScale: Float?
 
+    /// Absolute fill-stroke width in points. When set, it replaces `fillWeight * fillLineScale`.
+    ///
+    /// Wash passes store each stroke's width here so a 42-point crayon stroke is not
+    /// a multiplier on the outline weight.
+    public let fillLineWidth: Float?
+
+    /// Multiplier on the fill opacity for this set. Wash passes vary it per stroke.
+    public let opacityScale: Float?
+
     public init(
         type: OperationSetType,
         operations: [Operation],
         path: String?,
         size: Size?,
-        fillLineScale: Float? = nil
+        fillLineScale: Float? = nil,
+        fillLineWidth: Float? = nil,
+        opacityScale: Float? = nil
     ) {
         self.type = type
         self.operations = operations
         self.path = path
         self.size = size
         self.fillLineScale = fillLineScale
+        self.fillLineWidth = fillLineWidth
+        self.opacityScale = opacityScale
     }
 
     static func from(dictionary: JSONDictionary) -> OperationSet? {

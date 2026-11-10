@@ -150,6 +150,13 @@ public struct Options: Equatable, Hashable {
     /// `0` is a still frame and stays in the drawing cache.
     public var contourDrift: ContourDrift? = nil
 
+    /// Crayon-wash bands. `.wash` uses `WashPass.sky` when this is nil.
+    ///
+    /// On a `.contour` fill, a non-nil value strokes each contour centerline
+    /// with this recipe (trim, sine bow, roughness, and per-pass width) instead
+    /// of the plain contour stroke.
+    public var washPasses: [WashPass]? = nil
+
     /// Selects between sampled-point (legacy) and continuous-Bezier stroke
     /// generation for native curved shapes (circle, ellipse, arc, egg,
     /// rounded-rectangle corners, polygons, lines).
@@ -317,6 +324,7 @@ public struct Options: Equatable, Hashable {
         hasher.combine(contourEasing)
         hasher.combine(contourFalloff)
         hasher.combine(contourDrift)
+        hasher.combine(washPasses)
         hasher.combine(scribbleOrigin)
         hasher.combine(scribbleTightness)
         hasher.combine(scribbleCurvature)

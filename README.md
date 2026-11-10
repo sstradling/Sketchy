@@ -394,6 +394,8 @@ SVG paths and native polygons clip the scribble to the padded fill, so a concave
 
 `.fillStyle(.contour)` bends each fill stroke along a guide. `.contourIntensity(0)` is straight, `1` follows the guide, and higher values exaggerate the bow. `.contourIntensity(from:to:angle:easing:)` ramps that bow across the shape (`90` is top to bottom). `.contourGuide` takes an arc or a polyline in the shape's coordinates, so a lake can reuse the ground's arc. `.contourFalloff` packs and thins strokes toward the guide. `.animatedContour(angle:speed:)` scrolls the field in points per second without re-rolling the wobble.
 
+`.fillStyle(.wash)` is the sky crayon wash: separate strokes around `fillAngle`, two width passes, end trim, and a sine bow. `WashPass.sky` is the mockup recipe. `scaled(by:)` shrinks it. Setting `washPasses` on a `.contour` fill strokes those curves with the same recipe.
+
 ```swift
 RoughView()
     .fill(Color(red: 0.22, green: 0.48, blue: 0.34))

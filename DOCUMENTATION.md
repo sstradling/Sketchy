@@ -621,6 +621,7 @@ public enum FillStyle: String {
     case scribble       // Continuous zig-zag traversal
     case watercolor     // Clipped wash with a darker rim
     case contour        // Curved strokes that follow a guide
+    case wash           // Separate crayon strokes with trim and a sine bow
 }
 ```
 
@@ -700,6 +701,28 @@ direction, so an angle parallel to the strokes does not scroll them. The
 field wraps. Each slot keeps its roughness seed, and the outline is not
 re-rolled. A moving view skips the drawing cache. A pinned phase (`speed` `0`)
 stays cached. Set `seed` or the wobble is new on every uncached build.
+
+### Sky wash
+
+`.fillStyle(.wash)` draws separate strokes instead of one chord across the shape.
+Each stroke scatters around `fillAngle`, trims its ends, and adds a sine bow, then
+uses the same rough centerline as the other fills. `WashPass.sky` is the two-pass
+SlapDuck sky (widths about 42–58 and 28–42 points, trims 28 and 48). `scaled(by:)`
+shrinks those lengths for a smaller view. `nil` passes on a wash fill use that sky preset.
+
+```swift
+RoughView()
+    .fill(Color(red: 0.45, green: 0.62, blue: 0.98))
+    .fillStyle(.wash)
+    .fillAngle(-20)
+    .washPasses(WashPass.sky(scale: 0.4))
+    .brushProfile(.crayon)
+    .seed(19)
+    .rectangle()
+```
+
+A `.contour` fill uses the same recipe when `washPasses` is set. Each contour
+centerline is trimmed, given the sine bow, and drawn at the pass width.
 
 Scribble fills are clipped for potentially concave outlines: SVG paths
 and native `Polygon` drawables. This prevents the continuous zig-zag line

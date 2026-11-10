@@ -123,6 +123,8 @@ public struct FillPatternFactory {
             newFiller = SolidFiller()
         case .contour:
             newFiller = ContourFiller()
+        case .wash:
+            newFiller = WashFiller()
         }
         
         fillers[style] = newFiller

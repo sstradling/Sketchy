@@ -614,6 +614,35 @@ extension DocExampleCatalog {
                 .strokeWidth(2)
                 .seed(19)
                 .circle()
+        },
+        still(
+            "sky-wash",
+            section: "Fills",
+            title: "Sky wash",
+            description: "Separate crayon strokes at -20°, with two width passes, end trim, and a small sine bow.",
+            snippet: """
+            RoughView()
+                .fill(\(inkBlue.snippet))
+                .fillStyle(.wash)
+                .fillAngle(-20)
+                .washPasses(WashPass.sky(scale: 0.18))
+                .brushProfile(.crayon)
+                .stroke(\(charcoal.snippet))
+                .strokeWidth(2)
+                .seed(19)
+                .rectangle()
+            """
+        ) {
+            RoughView()
+                .fill(inkBlue.color)
+                .fillStyle(.wash)
+                .fillAngle(-20)
+                .washPasses(WashPass.sky(scale: 0.18))
+                .brushProfile(.crayon)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(19)
+                .rectangle()
         }
     ]
 }
