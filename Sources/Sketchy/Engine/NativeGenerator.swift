@@ -153,9 +153,7 @@ public final class NativeGenerator {
         var sets: [OperationSet] = []
         
         // Generate fill if needed
-        if let fillSet = generateRectangleFill(x: x, y: y, width: width, height: height, options: options) {
-            sets.append(fillSet)
-        }
+        sets.append(contentsOf: generateRectangleFill(x: x, y: y, width: width, height: height, options: options))
         
         // Generate stroke
         let ops: [Operation]
@@ -186,11 +184,9 @@ public final class NativeGenerator {
         
         // Fill the same radii the outline will use. Padding and offset are
         // applied inside the fill, so the stroke stays on the full ellipse.
-        if let fillSet = generateEllipseFill(
+        sets.append(contentsOf: generateEllipseFill(
             cx: cx, cy: cy, rx: resolved.rx, ry: resolved.ry, options: options
-        ) {
-            sets.append(fillSet)
-        }
+        ))
         
         // Stroke the same radii the fill used. Continuous mode does not
         // resolve them again.
@@ -223,11 +219,9 @@ public final class NativeGenerator {
         
         var sets: [OperationSet] = []
         
-        if let fillSet = generateEllipseFill(
+        sets.append(contentsOf: generateEllipseFill(
             cx: cx, cy: cy, rx: resolved.rx, ry: resolved.ry, options: options
-        ) {
-            sets.append(fillSet)
-        }
+        ))
         
         let ops: [Operation]
         switch options.strokeContinuity {
@@ -270,9 +264,7 @@ public final class NativeGenerator {
         var sets: [OperationSet] = []
         
         // Generate fill if needed
-        if let fillSet = generatePolygonFill(points: points, options: options) {
-            sets.append(fillSet)
-        }
+        sets.append(contentsOf: generatePolygonFill(points: points, options: options))
         
         // Generate stroke
         let ops: [Operation]
@@ -350,9 +342,7 @@ public final class NativeGenerator {
         var sets: [OperationSet] = []
         
         // Generate fill if needed
-        if let fillSet = generateRoundedRectangleFill(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius, options: options) {
-            sets.append(fillSet)
-        }
+        sets.append(contentsOf: generateRoundedRectangleFill(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius, options: options))
         
         // Generate stroke
         let ops: [Operation]
@@ -382,9 +372,7 @@ public final class NativeGenerator {
         var sets: [OperationSet] = []
         
         // Generate fill if needed
-        if let fillSet = generateEggFill(cx: cx, cy: cy, width: width, height: height, tilt: tilt, options: options) {
-            sets.append(fillSet)
-        }
+        sets.append(contentsOf: generateEggFill(cx: cx, cy: cy, width: width, height: height, tilt: tilt, options: options))
         
         // Generate stroke
         let ops: [Operation]
@@ -409,9 +397,7 @@ public final class NativeGenerator {
         var sets: [OperationSet] = []
         
         // Generate fill if needed
-        if let fillSet = generatePathFill(pathString: pathString, options: options) {
-            sets.append(fillSet)
-        }
+        sets.append(contentsOf: generatePathFill(pathString: pathString, options: options))
         
         // Generate stroke using SVG path renderer
         let ops = SVGPathRenderer.pathOps(svgPath: pathString, options: options)
@@ -425,7 +411,7 @@ public final class NativeGenerator {
     /// Generates fill for a rectangle.
     /// Note: Fill is always generated (matching rough.js behavior), even if color is clear.
     /// The renderer will skip clear fills during drawing.
-    private func generateRectangleFill(x: Float, y: Float, width: Float, height: Float, options: Options) -> OperationSet? {
+    private func generateRectangleFill(x: Float, y: Float, width: Float, height: Float, options: Options) -> [OperationSet] {
         let points: [[Float]] = [
             [x, y],
             [x + width, y],
@@ -438,15 +424,15 @@ public final class NativeGenerator {
     
     /// Generates fill for an ellipse.
     /// Note: Fill is always generated (matching rough.js behavior), even if color is clear.
-    private func generateEllipseFill(cx: Float, cy: Float, rx: Float, ry: Float, options: Options) -> OperationSet? {
+    private func generateEllipseFill(cx: Float, cy: Float, rx: Float, ry: Float, options: Options) -> [OperationSet] {
         guard let region = FillGeometry.ellipse(
             cx: cx, cy: cy, rx: rx, ry: ry,
             padding: options.fillPadding, offset: options.fillOffset
         ) else {
-            return nil
+            return []
         }
         let filler = FillPatternFactory.filler(for: options.fillStyle)
-        return filler.fillEllipse(
+        return filler.fillEllipseSets(
             cx: region.cx, cy: region.cy, rx: region.rx, ry: region.ry, options: options
         )
     }
@@ -454,14 +440,15 @@ public final class NativeGenerator {
     /// Generates fill for a polygon.
     /// Note: Fill is always generated (matching rough.js behavior), even if color is clear.
     /// A padding that collapses the polygon produces no fill.
-    private func generatePolygonFill(points: [[Float]], options: Options) -> OperationSet? {
+    /// Contour falloff may return several sets, one per stroke-width band.
+    private func generatePolygonFill(points: [[Float]], options: Options) -> [OperationSet] {
         guard let region = FillGeometry.polygon(
             points, padding: options.fillPadding, offset: options.fillOffset
         ) else {
-            return nil
+            return []
         }
         let filler = FillPatternFactory.filler(for: options.fillStyle)
-        return filler.fillPolygon(points: region, options: options)
+        return filler.fillPolygonSets(points: region, options: options)
     }
     
     /// Generates fill for an arc.
@@ -482,7 +469,7 @@ public final class NativeGenerator {
     
     /// Generates fill for a rounded rectangle.
     /// Note: Fill is always generated (matching rough.js behavior), even if color is clear.
-    private func generateRoundedRectangleFill(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, options: Options) -> OperationSet? {
+    private func generateRoundedRectangleFill(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, options: Options) -> [OperationSet] {
         // Approximate the rounded rectangle as a polygon for fill purposes
         let points = RoughMath.roundedRectanglePolygonPoints(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius)
         return generatePolygonFill(points: points, options: options)
@@ -490,7 +477,7 @@ public final class NativeGenerator {
     
     /// Generates fill for an egg shape.
     /// Note: Fill is always generated (matching rough.js behavior), even if color is clear.
-    private func generateEggFill(cx: Float, cy: Float, width: Float, height: Float, tilt: Float, options: Options) -> OperationSet? {
+    private func generateEggFill(cx: Float, cy: Float, width: Float, height: Float, tilt: Float, options: Options) -> [OperationSet] {
         // Approximate the egg as a polygon for fill purposes
         let points = RoughMath.eggPolygonPoints(cx: cx, cy: cy, width: width, height: height, tilt: tilt, stepCount: options.curveStepCount)
         return generatePolygonFill(points: points, options: options)
@@ -498,24 +485,23 @@ public final class NativeGenerator {
     
     /// Generates fill for an SVG path.
     /// Note: Fill is always generated (matching rough.js behavior), even if color is clear.
-    private func generatePathFill(pathString: String, options: Options) -> OperationSet? {
+    private func generatePathFill(pathString: String, options: Options) -> [OperationSet] {
         let adjustsFill = options.fillPadding != 0 || options.fillOffset != .zero
         if adjustsFill {
             guard let contours = FillGeometry.svgContours(
                 pathString, padding: options.fillPadding, offset: options.fillOffset
             ), let outer = contours.first else {
-                return nil
+                return []
             }
             let clipped = FillGeometry.svgPath(from: contours)
             if options.fillStyle == .solid || options.fillStyle == .watercolor {
-                return OperationSet(type: .path2DFill, operations: [], path: clipped, size: nil)
+                return [OperationSet(type: .path2DFill, operations: [], path: clipped, size: nil)]
             }
             let filler = FillPatternFactory.filler(for: options.fillStyle)
-            guard let fillSet = filler.fillPolygon(points: outer, options: options) else { return nil }
+            let fillSets = filler.fillPolygonSets(points: outer, options: options)
             let bounds = UIBezierPath(svgPath: clipped).cgPath.boundingBox
-            return OperationSet(
-                type: .path2DPattern,
-                operations: fillSet.operations,
+            return patternSets(
+                fillSets,
                 path: clipped,
                 size: Size(width: Float(bounds.width), height: Float(bounds.height))
             )
@@ -523,14 +509,13 @@ public final class NativeGenerator {
 
         if options.fillStyle == .solid || options.fillStyle == .watercolor {
             // Solid and watercolor fills use the path directly. The wash is painted later.
-            return OperationSet(type: .path2DFill, operations: [], path: pathString, size: nil)
+            return [OperationSet(type: .path2DFill, operations: [], path: pathString, size: nil)]
         } else {
-            // Pattern fill
+            // Pattern fill. The bounding box is filled, then clipped even-odd to the path
+            // so holes stay empty.
             let bezier = UIBezierPath(svgPath: pathString)
             let bounds = bezier.cgPath.boundingBox
             
-            // Create a bounding box polygon for pattern that matches the actual path bounds
-            // The hachure lines need to be positioned at the same location as the path
             let minX = Float(bounds.minX)
             let minY = Float(bounds.minY)
             let maxX = Float(bounds.maxX)
@@ -544,15 +529,27 @@ public final class NativeGenerator {
             ]
             
             let filler = FillPatternFactory.filler(for: options.fillStyle)
-            if let fillSet = filler.fillPolygon(points: points, options: options) {
-                return OperationSet(
-                    type: .path2DPattern,
-                    operations: fillSet.operations,
-                    path: pathString,
-                    size: Size(width: Float(bounds.width), height: Float(bounds.height))
-                )
-            }
-            return nil
+            let fillSets = filler.fillPolygonSets(points: points, options: options)
+            return patternSets(
+                fillSets,
+                path: pathString,
+                size: Size(width: Float(bounds.width), height: Float(bounds.height))
+            )
+        }
+    }
+
+    /// Clips each fill band to an SVG path and keeps its contour width scale.
+    private func patternSets(_ fillSets: [OperationSet], path: String, size: Size) -> [OperationSet] {
+        fillSets.map { set in
+            OperationSet(
+                type: .path2DPattern,
+                operations: set.operations,
+                path: path,
+                size: size,
+                fillLineScale: set.fillLineScale,
+                fillLineWidth: set.fillLineWidth,
+                opacityScale: set.opacityScale
+            )
         }
     }
     

@@ -40,6 +40,11 @@ public struct DrawingCacheKey: Hashable {
                 hasher.combine(num.doubleValue)
             } else if let str = arg as? String {
                 hasher.combine(str)
+            } else if let point = arg as? [Float] {
+                // Polygon and path points are `[Float]`, not `NSNumber`.
+                for value in point {
+                    hasher.combine(value)
+                }
             } else if let dict = arg as? [String: Any] {
                 // Point dictionary
                 if let x = dict["x"] as? NSNumber {
@@ -73,6 +78,15 @@ public struct DrawingCacheKey: Hashable {
         hasher.combine(options.dashOffset)
         hasher.combine(options.dashGap)
         hasher.combine(options.zigzagOffset)
+        hasher.combine(options.contourGuide)
+        hasher.combine(options.contourIntensity)
+        hasher.combine(options.contourIntensityStart)
+        hasher.combine(options.contourIntensityEnd)
+        hasher.combine(options.contourGradientAngle)
+        hasher.combine(options.contourEasing)
+        hasher.combine(options.contourFalloff)
+        hasher.combine(options.contourDrift)
+        hasher.combine(options.washPasses)
         hasher.combine(options.seed)
         return hasher.finalize()
     }

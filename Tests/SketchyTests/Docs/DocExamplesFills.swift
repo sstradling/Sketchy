@@ -610,6 +610,66 @@ extension DocExampleCatalog {
                 .seed(11)
                 .interiorShades([.pitShadow, .pitRecess])
                 .circle()
+        },
+        still(
+            "contour-dome",
+            section: "Fills",
+            title: "Contour fill",
+            description: "Strokes follow an arc below the circle. Curvature eases from the crest toward a gentler bow.",
+            snippet: """
+            RoughView()
+                .fill(\(leaf.snippet))
+                .fillStyle(.contour)
+                .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+                .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+                .fillWeight(2.4)
+                .fillSpacing(3.2)
+                .stroke(\(charcoal.snippet))
+                .strokeWidth(2)
+                .seed(19)
+                .circle()
+            """
+        ) {
+            RoughView()
+                .fill(leaf.color)
+                .fillStyle(.contour)
+                .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+                .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+                .fillWeight(2.4)
+                .fillSpacing(3.2)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(19)
+                .circle()
+        },
+        still(
+            "sky-wash",
+            section: "Fills",
+            title: "Sky wash",
+            description: "Separate crayon strokes at -20°, with two width passes, end trim, and a small sine bow.",
+            snippet: """
+            RoughView()
+                .fill(\(inkBlue.snippet))
+                .fillStyle(.wash)
+                .fillAngle(-20)
+                .washPasses(WashPass.sky(scale: 0.18))
+                .brushProfile(.crayon)
+                .stroke(\(charcoal.snippet))
+                .strokeWidth(2)
+                .seed(19)
+                .rectangle()
+            """
+        ) {
+            RoughView()
+                .fill(inkBlue.color)
+                .fillStyle(.wash)
+                .fillAngle(-20)
+                .washPasses(WashPass.sky(scale: 0.18))
+                .brushProfile(.crayon)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(19)
+                .rectangle()
         }
     ]
 }
