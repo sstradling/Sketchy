@@ -151,7 +151,11 @@ final class MarkerVariableWidthTests: XCTestCase {
 
         XCTAssertEqual(open.first?.fillRule, .winding)
         XCTAssertEqual(uniform.first?.fillRule, .evenOdd)
-        XCTAssertEqual(closed.first?.fillRule, .evenOdd)
+        XCTAssertEqual(closed.first?.fillRule, .winding)
+        XCTAssertNotEqual(
+            points(in: closed.first?.path ?? SwiftUI.Path()),
+            points(in: brushCommands(profile: .marker, closed: true).first?.path ?? SwiftUI.Path())
+        )
     }
 
     func testOptionsCacheHashIncludesTheVariableMarker() {

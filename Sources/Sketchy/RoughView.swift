@@ -784,9 +784,9 @@ public extension RoughView {
     ///
     /// This replaces the current thickness profile, including `.variable`
     /// noise, pressure, and taper. The brush tip stays, so a marker's flat
-    /// tip still changes width with direction. Closed contours ignore the
-    /// stops and keep an even `strokeWidth`. A crayon brush does not use
-    /// thickness profiles.
+    /// tip still changes width with direction. A closed contour keeps the
+    /// stops and blends the end back to the width at the start. A crayon
+    /// brush scales its wax by the same profile.
     ///
     /// - Parameter stops: `(position, width)` pairs. Position is 0...1, width is points.
     /// - Returns: The view with `ThicknessProfile.stops`.

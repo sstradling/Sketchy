@@ -210,8 +210,8 @@ public enum ThicknessProfile: Equatable, Hashable, Sendable {
     /// scribble stroke uses this profile). The brush tip still scales the
     /// result by stroke direction, so a flat marker is thinner when the stroke
     /// runs along the tip. `.variable` noise is not applied on top: this case
-    /// replaces that profile. Closed contours ignore the stops and draw an
-    /// even `strokeWidth` so the join does not seam.
+    /// replaces that profile. On a closed contour the width at the end is
+    /// blended back to the width at the start, so the join does not step.
     ///
     /// `.custom([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5])` at `strokeWidth` 8
     /// matches `.stops` of 4pt, 8pt at 10%, 8pt at 90%, and 4pt at the end.
@@ -220,7 +220,8 @@ public enum ThicknessProfile: Equatable, Hashable, Sendable {
     /// Seeded width along the stroke. See `VariableStrokeWidth`.
     ///
     /// The marker factory builds this. Other brushes can use it through
-    /// `thicknessProfile(_:)`. Closed contours still render at an even width.
+    /// `thicknessProfile(_:)`. A closed contour blends the end back to the
+    /// width at the start so the join does not step.
     case variable(VariableStrokeWidth)
     
     // MARK: - Preset Profiles
@@ -290,9 +291,7 @@ public enum ThicknessProfile: Equatable, Hashable, Sendable {
     /// `strokeWidth`. Non-empty `.stops` return the interpolated point width
     /// and ignore `strokeWidth`. Empty `.stops` return `strokeWidth`.
     ///
-    /// The brush tip may still scale this width by stroke direction. Closed
-    /// contours do not call this with the stop list; they use an even
-    /// `strokeWidth`.
+    /// The brush tip may still scale this width by stroke direction.
     ///
     /// - Parameters:
     ///   - t: Position along the stroke, from 0 (start) to 1 (end). Clamped.
@@ -305,6 +304,19 @@ public enum ThicknessProfile: Equatable, Hashable, Sendable {
         default:
             return multiplier(at: t) * strokeWidth
         }
+    }
+
+    /// Width in points, with a closed contour pulled back to the start width.
+    ///
+    /// Open strokes (`closed == false`) match `width(at:strokeWidth:)`.
+    /// A closed contour blends the last 6% of the loop, and the first 6%,
+    /// toward the width at `t = 0`. The sample at `t = 1` is that same width,
+    /// so the two sides of the join meet. A uniform profile is unchanged.
+    public func width(at t: CGFloat, strokeWidth: CGFloat, closed: Bool) -> CGFloat {
+        let raw = width(at: t, strokeWidth: strokeWidth)
+        guard closed, variesAlongStroke else { return raw }
+        let join = width(at: 0, strokeWidth: strokeWidth)
+        return seamBlend(value: raw, toward: join, t: t, window: 0.06)
     }
 
     /// Multiplier of `strokeWidth` that produces `width(at:strokeWidth:)`.
@@ -516,7 +528,7 @@ public struct BrushProfile: Equatable, Hashable, Sendable {
     /// and may reach 0. `pressure` is interpolated like `ThicknessProfile.pressure`
     /// and then multiplied by the noisy body. `seed` repeats the wobble.
     ///
-    /// Closed contours ignore this profile and keep an even width.
+    /// A closed contour keeps this profile and blends the join to the start width.
     /// `.widthStops` replaces this profile, including the noise. The flat tip
     /// stays, and it scales the stop width by stroke direction.
     ///
@@ -569,7 +581,9 @@ public struct BrushProfile: Equatable, Hashable, Sendable {
     /// Wax-crayon stroke: a continuous greasy base with dense grit on top.
     ///
     /// The preset uses a circular tip. Texture comes from `crayon`, not from
-    /// the calligraphic outline converter. `strokeWidth` is the wax width in points.
+    /// the calligraphic outline converter. `strokeWidth` is the wax width in
+    /// points. A thickness profile scales that wax along the stroke, including
+    /// on a closed contour.
     public static let crayon = BrushProfile(crayon: CrayonStyle())
 
     /// Crayon preset with explicit texture settings.
@@ -711,8 +725,9 @@ public struct BrushProfile: Equatable, Hashable, Sendable {
     }
     
     /// Returns a copy of this profile with uniform thickness.
-    /// Used for closed paths where a taper, width stops, or a width wobble would seam at the join.
-    /// The even width is `strokeWidth`.
+    ///
+    /// The tip, caps, joins, and textures stay. Closed contours no longer
+    /// call this: they keep the profile and blend the join.
     func withUniformThickness() -> BrushProfile {
         BrushProfile(
             tip: tip,

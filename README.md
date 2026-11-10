@@ -440,9 +440,9 @@ RoughView()
     .draw(Line(from: Point(x: 24, y: 100), to: Point(x: 168, y: 92)))
 ```
 
-`.thicknessProfile(.naturalPen)` tapers an open stroke. Closed shapes keep an even width so the join does not seam. A variable marker does the same on a closed contour.
+`.thicknessProfile(.naturalPen)` tapers a stroke. On a closed contour the end blends back to the width at the start, so the join does not step.
 
-`.widthStops([(0, 4), (0.1, 8), (0.9, 8), (1, 4)])` sets those widths in points: 4pt at the start, 8pt from 10% to 90% of the length, then 4pt. `strokeWidth` does not scale a non-empty list. `.custom([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5])` with `strokeWidth` 8 is the same curve, as evenly spaced multipliers. Stops replace a `.variable` wobble. The marker's flat tip still changes width with direction. Closed contours ignore the stops.
+`.widthStops([(0, 4), (0.1, 8), (0.9, 8), (1, 4)])` sets those widths in points: 4pt at the start, 8pt from 10% to 90% of the length, then 4pt. `strokeWidth` does not scale a non-empty list. `.custom([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5])` with `strokeWidth` 8 is the same curve, as evenly spaced multipliers. Stops replace a `.variable` wobble. The marker's flat tip still changes width with direction. A closed ring keeps the stops, and a crayon brush scales its wax by the same profile.
 
 ![Width stops](docs/images/brushes/width-stops.png)
 

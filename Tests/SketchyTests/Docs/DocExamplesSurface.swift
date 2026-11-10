@@ -462,6 +462,33 @@ extension DocExampleCatalog {
                 ]))
         },
         still(
+            "closed-crayon-ring",
+            section: "Brushes",
+            title: "Closed crayon ring",
+            description: "A closed circle keeps a variable width. The join blends back to the width at the start, and the crayon wax follows that width.",
+            snippet: """
+            RoughView()
+                .stroke(\(inkBlue.snippet))
+                .strokeWidth(11)
+                .roughness(1.1)
+                .bowing(0.6)
+                .brushProfile(.crayon(seed: 19))
+                .thicknessProfile(.variable(VariableStrokeWidth(variation: 0.55, seed: 19, frequency: 2)))
+                .seed(19)
+                .draw(Circle(x: 92, y: 92, diameter: 112))
+            """
+        ) {
+            RoughView()
+                .stroke(inkBlue.color)
+                .strokeWidth(11)
+                .roughness(1.1)
+                .bowing(0.6)
+                .brushProfile(.crayon(seed: 19))
+                .thicknessProfile(.variable(VariableStrokeWidth(variation: 0.55, seed: 19, frequency: 2)))
+                .seed(19)
+                .draw(Circle(x: 92, y: 92, diameter: 112))
+        },
+        still(
             "variable-opacity",
             section: "Brushes",
             title: "Variable opacity",
