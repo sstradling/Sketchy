@@ -264,7 +264,7 @@ func widthStops(_ stops: [(CGFloat, CGFloat)]) -> Self
 func widthStops(_ stops: [WidthStop]) -> Self
 ```
 
-`RoughText` has the same `.widthStops` methods. Most glyph outlines are closed, so they keep an even `strokeWidth`.
+`RoughText` has the same `.widthStops` methods. A closed glyph keeps the stops and blends the join back to the width at the start.
 
 ### Sticker Backing
 
@@ -751,9 +751,9 @@ A non-empty list is already in points. `width(at:strokeWidth:)` returns that wid
 
 The brush tip still scales that point width by stroke direction. A circular tip draws the stop width. A flat marker draws `BrushTip.effectiveWidth(baseWidth: stopWidth, strokeAngle:)`.
 
-`.stops` and `.variable` share one `thicknessProfile`. `.widthStops` replaces the variable profile, including its noise, pressure, and taper. They are not multiplied. `.brushProfile` replaces the whole profile, so call `.widthStops` after it. Closed contours drop both and draw an even `strokeWidth`, then the tip. A crayon brush does not consult the thickness profile. Its width stays `strokeWidth` plus `CrayonStyle.widthVariation`.
+`.stops` and `.variable` share one `thicknessProfile`. `.widthStops` replaces the variable profile, including its noise, pressure, and taper. They are not multiplied. `.brushProfile` replaces the whole profile, so call `.widthStops` after it. A closed contour keeps the profile. The last 6% of the loop, and the first 6%, blend toward the width at the start, so `t = 1` matches `t = 0` and the join does not step. A crayon brush scales every wax mark by that width, including on a closed ring.
 
-An open stroke with stops fills with the winding rule, same as an open `.variable` marker, so the two rough passes union into one solid mark and the point width stays visible. Closed contours stay even-odd. `.custom` and the tapers stay even-odd.
+A stroke with stops or `.variable` fills with the winding rule, so the two rough passes union into one solid mark. The outline is a ribbon, so the middle of a closed ring stays empty. `.custom` and the tapers stay even-odd.
 
 ```swift
 RoughView()
@@ -883,7 +883,7 @@ public struct BrushProfile: Equatable, Hashable, Sendable {
 
 ### CrayonStyle
 
-A crayon stroke is continuous. A soft translucent halo and a greasy core are drawn first, then denser flakes and edge crumbs are laid on top. Nothing in the preset opens a paper break along the stroke. `strokeWidth` is the wax width in points and is not scaled again when an SVG path is fitted to the view, matching a normal stroke. The same `seed` repeats the same texture. Closed contours are sampled through the closing segment so the join does not seam.
+A crayon stroke is continuous. A soft translucent halo and a greasy core are drawn first, then denser flakes and edge crumbs are laid on top. Nothing in the preset opens a paper break along the stroke. `strokeWidth` is the wax width in points and is not scaled again when an SVG path is fitted to the view, matching a normal stroke. The same `seed` repeats the same texture. Closed contours are sampled through the closing segment. A thickness profile scales the wax, and the join uses the width at the start of the loop.
 
 When `brushProfile.crayon` is set, hachure, zigzag, and scribble fill lines use the same wax. The fill-line width is `fillWeight` (or half the stroke width when `fillWeight` is automatic). Outline strokes still use `strokeWidth`. Flakes, specks, and the stamp spacing scale with that width, down to a fraction of a point, so a thin fill line still shows grit instead of a smooth tube.
 
@@ -922,7 +922,7 @@ public enum CrayonStroke {
 
 `BrushProfile.marker` is still an even flat stroke. The factory below keeps that tip, the butt caps, and the bevel joins, and varies the width along an open stroke. `marker()` with the default arguments is equal to `.marker`.
 
-The width is `ThicknessProfile.variable(_:)`, which calls `VariableStrokeWidth.multiplier(at:)`. That reuses the existing taper ramps and the existing pressure interpolation, then multiplies them by a seeded noise value. An open stroke fills with the winding rule so the two rough passes union into one mark. `.marker` stays even-odd. Closed contours still drop the profile and draw an even width so the join does not seam.
+The width is `ThicknessProfile.variable(_:)`, which calls `VariableStrokeWidth.multiplier(at:)`. That reuses the existing taper ramps and the existing pressure interpolation, then multiplies them by a seeded noise value. The stroke fills with the winding rule so the two rough passes union into one mark. `.marker` stays even-odd. A closed contour keeps the wobble and blends the join back to the width at the start.
 
 Width stops do not layer on that noise. `.widthStops` replaces `.variable` and the flat tip scales the point widths. A later `.brushProfile(.marker(variation:))` replaces the stops.
 
@@ -1632,7 +1632,7 @@ Engine.shared.clearCaches()
 ### Issue: Width stops do not change the stroke
 
 **Causes & Solutions:**
-1. The shape is closed, or the text glyphs are closed outlines. Closed contours keep an even `strokeWidth` so the join does not seam.
+1. The width at the join is the width at the start of the loop. A taper that reaches 0 there pinches the ring. Use `.variable` or `.widthStops` whose start width is the width you want at the join.
 2. `.brushProfile(...)` was called after `.widthStops` and replaced the stops. Set the brush first.
 3. `.brushProfile(.crayon)` does not use thickness profiles. Crayon width is `strokeWidth` plus `widthVariation`.
 4. The numbers in `.widthStops` are points. A non-empty list ignores `strokeWidth`.

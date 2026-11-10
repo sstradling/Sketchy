@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import UIKit
 @testable import Sketchy
 
 /// Positioned point widths, and the outline those widths produce.
@@ -219,19 +220,27 @@ final class WidthStopTests: XCTestCase {
         assertRibbon(thinStops, centerY: 40, length: 200)
     }
 
-    func testClosedContourKeepsEvenStrokeWidth() {
+    func testClosedContourKeepsTheStopsAndMeetsAtTheJoin() {
         let operations = rectangle()
         let stops = BrushProfile(thicknessProfile: .stops([
-            WidthStop(position: 0, width: 2),
-            WidthStop(position: 1, width: 30)
-        ]))
-        let even = BrushProfile()
-        let stopped = points(in: outline(operations, profile: stops, strokeWidth: 7))
-        let uniform = points(in: outline(operations, profile: even, strokeWidth: 7))
-        let otherWidth = points(in: outline(operations, profile: even, strokeWidth: 4))
+            WidthStop(position: 0, width: 4),
+            WidthStop(position: 0.55, width: 28),
+            WidthStop(position: 1, width: 22)
+        ]), cap: .butt, join: .bevel)
+        let even = BrushProfile(cap: .butt, join: .bevel)
+        let stopped = outline(operations, profile: stops, strokeWidth: 7)
+        let uniform = outline(operations, profile: even, strokeWidth: 4)
 
-        XCTAssertEqual(stopped, uniform)
-        XCTAssertNotEqual(stopped, otherWidth)
+        XCTAssertNotEqual(points(in: stopped), points(in: uniform))
+        XCTAssertFalse(stopped.contains(CGPoint(x: 50, y: 35)))
+        let top = span(points(in: stopped), x: 50, centerY: 10)
+        let bottom = span(points(in: stopped), x: 50, centerY: 60)
+        XCTAssertGreaterThan(bottom, top + 6, "top \(top) bottom \(bottom)")
+
+        let profile = stops.thicknessProfile
+        XCTAssertEqual(profile.width(at: 0, strokeWidth: 7, closed: true), 4, accuracy: 0.01)
+        XCTAssertEqual(profile.width(at: 1, strokeWidth: 7, closed: true), 4, accuracy: 0.01)
+        XCTAssertGreaterThan(profile.width(at: 0.55, strokeWidth: 7, closed: true), 24)
     }
 
     func testMarkerTipScalesStopsAndDropsVariableNoise() {
@@ -282,7 +291,7 @@ final class WidthStopTests: XCTestCase {
         let commands = brushCommands(profile: stopped, strokeWidth: 2, closed: false)
         let closed = brushCommands(profile: stopped, strokeWidth: 2, closed: true)
         XCTAssertEqual(commands.first?.fillRule, .winding)
-        XCTAssertEqual(closed.first?.fillRule, .evenOdd)
+        XCTAssertEqual(closed.first?.fillRule, .winding)
 
         let variable = brushCommands(
             profile: .marker(variation: 0.4, seed: 3),
@@ -292,19 +301,45 @@ final class WidthStopTests: XCTestCase {
         XCTAssertEqual(variable.first?.fillRule, .winding)
     }
 
-    func testCrayonIgnoresWidthStops() {
+    func testCrayonFollowsWidthStops() {
         var plain = BrushProfile.crayon
         plain.crayon = CrayonStyle(seed: 4)
         var stopped = plain
-        stopped.thicknessProfile = .stops(sethStops)
+        stopped.thicknessProfile = .stops([
+            WidthStop(position: 0, width: 4),
+            WidthStop(position: 0.5, width: 28),
+            WidthStop(position: 1, width: 4)
+        ])
         let operations = horizontalLine()
-        let without = crayonPaths(profile: plain, operations: operations, strokeWidth: 5)
-        let withStops = crayonPaths(profile: stopped, operations: operations, strokeWidth: 5)
+        let without = crayonPaths(profile: plain, operations: operations, strokeWidth: 4)
+        let withStops = crayonPaths(profile: stopped, operations: operations, strokeWidth: 4)
         XCTAssertEqual(without.count, withStops.count)
         XCTAssertFalse(without.isEmpty)
-        for (plainPath, stoppedPath) in zip(without, withStops) {
-            XCTAssertEqual(points(in: plainPath), points(in: stoppedPath))
-        }
+        let plainHeight = unionBounds(without).height
+        let stoppedHeight = unionBounds(withStops).height
+        XCTAssertGreaterThan(stoppedHeight, plainHeight + 8)
+        let again = crayonPaths(profile: stopped, operations: operations, strokeWidth: 4)
+        XCTAssertEqual(points(in: withStops[0]), points(in: again[0]))
+    }
+
+    func testClosedCrayonRingUsesTheProfile() {
+        var plain = BrushProfile.crayon
+        plain.crayon = CrayonStyle(seed: 8)
+        var varied = plain
+        varied.thicknessProfile = .variable(VariableStrokeWidth(
+            variation: 0.6,
+            minimum: 0.4,
+            maximum: 1.8,
+            seed: 8,
+            frequency: 2
+        ))
+        let operations = rectangle()
+        let even = crayonPaths(profile: plain, operations: operations, strokeWidth: 8, closed: true)
+        let swollen = crayonPaths(profile: varied, operations: operations, strokeWidth: 8, closed: true)
+        XCTAssertFalse(swollen.isEmpty)
+        XCTAssertGreaterThan(unionBounds(swollen).width, unionBounds(even).width + 2)
+        let repeatSwollen = crayonPaths(profile: varied, operations: operations, strokeWidth: 8, closed: true)
+        XCTAssertEqual(points(in: swollen[0]), points(in: repeatSwollen[0]))
     }
 
     func testWidthStopsModifierReplacesVariableAndKeepsTheMarkerTip() {
@@ -478,6 +513,80 @@ final class WidthStopTests: XCTestCase {
     }
 
     /// Vertical distance between the outline sides nearest `x`.
+    func testRenderClosedWidthSamples() throws {
+        guard ProcessInfo.processInfo.environment["CLOSED_WIDTH_SAMPLES"] == "1" else {
+            throw XCTSkip("Set CLOSED_WIDTH_SAMPLES=1 to write sample images")
+        }
+        let dir = ProcessInfo.processInfo.environment["CLOSED_WIDTH_SAMPLE_DIR"] ?? "/tmp/sketchy-closed-width-samples"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try write(blueRing(), name: "blue-ring.png", dir: dir)
+        try write(charcoalRing(), name: "charcoal-ring.png", dir: dir)
+        try write(stopsRing(), name: "stops-ring.png", dir: dir)
+    }
+
+    private func blueRing() -> some View {
+        ring(
+            color: Color(red: 22 / 255, green: 68 / 255, blue: 150 / 255),
+            width: 11,
+            seed: 19
+        )
+    }
+
+    private func charcoalRing() -> some View {
+        ring(
+            color: Color(red: 36 / 255, green: 30 / 255, blue: 26 / 255),
+            width: 8.5,
+            seed: 27
+        )
+    }
+
+    private func ring(color: Color, width: Float, seed: UInt64) -> some View {
+        ZStack {
+            Color(red: 0.93, green: 0.95, blue: 0.98)
+            RoughView()
+                .stroke(color)
+                .strokeWidth(width)
+                .roughness(1.15)
+                .bowing(0.7)
+                .brushProfile(.crayon(seed: seed))
+                .thicknessProfile(.variable(VariableStrokeWidth(
+                    variation: 0.55,
+                    minimum: 0.45,
+                    maximum: 1.65,
+                    seed: seed,
+                    frequency: 2
+                )))
+                .seed(seed)
+                .draw(Circle(x: 140, y: 140, diameter: 180))
+        }
+        .frame(width: 280, height: 280)
+    }
+
+    private func stopsRing() -> some View {
+        ZStack {
+            Color(red: 0.93, green: 0.95, blue: 0.98)
+            RoughView()
+                .stroke(Color(red: 22 / 255, green: 68 / 255, blue: 150 / 255))
+                .strokeWidth(8)
+                .roughness(1.1)
+                .bowing(0.6)
+                .brushProfile(.crayon(seed: 31))
+                .widthStops([(0, 6), (0.18, 16), (0.4, 7), (0.62, 18), (0.82, 6), (1, 14)])
+                .seed(31)
+                .draw(Circle(x: 140, y: 140, diameter: 180))
+        }
+        .frame(width: 280, height: 280)
+    }
+
+    private func write<V: View>(_ view: V, name: String, dir: String) throws {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        renderer.isOpaque = true
+        let image = try XCTUnwrap(renderer.uiImage)
+        let url = URL(fileURLWithPath: dir).appendingPathComponent(name)
+        try XCTUnwrap(image.pngData()).write(to: url)
+    }
+
     private func span(_ samples: [CGPoint], x: CGFloat, centerY: CGFloat) -> CGFloat {
         let nearest = samples.min { lhs, rhs in
             abs(lhs.x - x) < abs(rhs.x - x)
@@ -559,8 +668,20 @@ final class WidthStopTests: XCTestCase {
     private func crayonPaths(
         profile: BrushProfile,
         operations: [Sketchy.Operation],
-        strokeWidth: Float
+        strokeWidth: Float,
+        closed: Bool = false
     ) -> [SwiftUI.Path] {
-        brushCommands(profile: profile, strokeWidth: strokeWidth, closed: false).map(\.path)
+        var options = Options()
+        options.brushProfile = profile
+        options.strokeWidth = strokeWidth
+        let pathSet = OperationSet(type: .path, operations: closed ? rectangle() : operations, path: nil, size: nil)
+        let drawing = Drawing(shape: "line", sets: [pathSet], options: options)
+        return SwiftUIRenderer().commands(for: drawing, options: options, in: CGSize(width: 240, height: 120)).map(\.path)
+    }
+
+    private func unionBounds(_ paths: [SwiftUI.Path]) -> CGRect {
+        paths.reduce(CGRect.null) { rect, path in
+            rect.union(path.boundingRect)
+        }
     }
 }

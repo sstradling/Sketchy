@@ -20,8 +20,8 @@ import Foundation
 /// A non-zero `variation`, an explicit bound, a taper, or a pressure curve
 /// builds `ThicknessProfile.variable`.
 ///
-/// Closed contours still drop this profile. `StrokeToFillConverter` uses an
-/// even width there so the join does not seam.
+/// A closed contour keeps this profile. The renderer blends the end of the
+/// loop back to the width at the start so the join does not step.
 ///
 /// `.stops` is a different profile. It does not multiply this noise: a brush
 /// stores one thickness profile, and `.widthStops` replaces `.variable`. The

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Closed contours keep `.widthStops` and `.variable` instead of dropping them. `ThicknessProfile.width(at:strokeWidth:closed:)` blends the first and last 6% of the loop toward the width at the start, so the join meets. The stroke is still a ribbon, so the middle of a ring stays empty. Stops and `.variable` fill with the winding rule on a closed contour too, and the two rough passes union. A crayon brush scales its wax by that profile, including on a closed ring. The same seed repeats the wax and the width.
+
 ## [1.5.0] - 2026-11-09
 
 - The sticker docs now cover the full set of options: width and smoothness, `.smooth` versus `.fullySmooth()` versus `.torn()`, backing color and paper grain, image masking, `SketchGroup` with `SketchPart` transforms, and `StickerShadow`. README, `DOCUMENTATION.md`, `llms.txt`, the demo, and the generated gallery in `docs/Examples.md` agree.

@@ -32,12 +32,15 @@ public enum CrayonStroke {
     ///   - operations: Centerline in source space (a line, an open path, or a closed contour).
     ///   - width: Wax width in the destination space, in points. Scales every mark.
     ///   - style: Grain, edge, layering, and seed.
+    ///   - thickness: Scales `width` along the stroke. `.uniform` leaves it even.
+    ///     A closed contour blends the end back to the width at the start.
     ///   - transform: Maps source points into the destination. Width is not scaled.
     /// - Returns: One pass per wax layer. Empty when the path has no length.
     public static func passes(
         operations: [Operation],
         width: CGFloat,
         style: CrayonStyle,
+        thickness: ThicknessProfile = .uniform,
         transform: CGAffineTransform = .identity,
         join: BrushJoin = .round,
         miterLimit: CGFloat = 10
@@ -52,6 +55,7 @@ public enum CrayonStroke {
             subpaths: subpaths,
             width: width,
             style: style,
+            thickness: thickness,
             transform: transform,
             join: join,
             miterLimit: miterLimit
@@ -64,6 +68,7 @@ public enum CrayonStroke {
                     into: marks,
                     width: width,
                     style: style,
+                    thickness: thickness,
                     transform: transform,
                     pass: pass,
                     subpathIndex: index,
@@ -84,6 +89,7 @@ private func basePasses(
     subpaths: [CrayonSubpath],
     width: CGFloat,
     style: CrayonStyle,
+    thickness: ThicknessProfile,
     transform: CGAffineTransform,
     join: BrushJoin,
     miterLimit: CGFloat
@@ -97,6 +103,7 @@ private func basePasses(
             core: core,
             width: width,
             style: style,
+            thickness: thickness,
             transform: transform,
             subpathIndex: index,
             join: join,
@@ -120,6 +127,8 @@ private func basePasses(
 private struct CrayonSample {
     var point: CGPoint
     var tangent: CGFloat
+    /// Fraction of this subpath's length. Assigned once the subpath is closed.
+    var t: CGFloat = 0
 }
 
 private struct CrayonSubpath {
@@ -141,6 +150,7 @@ private func subpaths(from operations: [Operation]) -> [CrayonSubpath] {
             closed = false
             return
         }
+        assignArcLength(&current)
         result.append(CrayonSubpath(samples: current, isClosed: closed))
         current.removeAll()
         start = nil
@@ -182,6 +192,28 @@ private func subpaths(from operations: [Operation]) -> [CrayonSubpath] {
     }
     flush()
     return result
+}
+
+private func assignArcLength(_ samples: inout [CrayonSample]) {
+    guard samples.count > 1 else { return }
+    var lengths = [CGFloat](repeating: 0, count: samples.count)
+    for index in 1..<samples.count {
+        lengths[index] = lengths[index - 1] + distance(samples[index - 1].point, samples[index].point)
+    }
+    let total = lengths[lengths.count - 1]
+    let inverse: CGFloat = total > 0.01 ? 1 / total : 0
+    for index in samples.indices {
+        samples[index].t = lengths[index] * inverse
+    }
+}
+
+private func waxWidth(
+    _ thickness: ThicknessProfile,
+    base: CGFloat,
+    t: CGFloat,
+    closed: Bool
+) -> CGFloat {
+    max(0, thickness.width(at: t, strokeWidth: base, closed: closed))
 }
 
 private func appendLine(from cursor: inout CGPoint, to end: CGPoint, into samples: inout [CrayonSample]) {
@@ -269,6 +301,7 @@ private func stampBase(
     core: CGMutablePath,
     width: CGFloat,
     style: CrayonStyle,
+    thickness: ThicknessProfile,
     transform: CGAffineTransform,
     subpathIndex: Int,
     join: BrushJoin,
@@ -294,31 +327,33 @@ private func stampBase(
         while next <= traveled + span && serial < budget {
             let t = min(1, max(0, (next - traveled) / span))
             let point = lerp(start.point, end.point, t)
+            let alongT = start.t + (end.t - start.t) * t
+            let local = waxWidth(thickness, base: width, t: alongT, closed: subpath.isClosed)
             let tangent = end.tangent
             let normal = tangent + .pi / 2
             let swell = unit(style.seed, 0, serial, 6) - 0.5
             let wobble = 1 + CGFloat(style.widthVariation) * swell * 0.22
             // A small sideways drift softens the edge. It stays well inside the
             // ellipse thickness, so the wax still overlaps and does not break.
-            let drift = (unit(style.seed, 1, serial, 8) - 0.5) * width * softness * 0.1
+            let drift = (unit(style.seed, 1, serial, 8) - 0.5) * local * softness * 0.1
             let center = CGPoint(
                 x: point.x + cos(normal) * drift,
                 y: point.y + sin(normal) * drift
             )
-            let along = max(step * 2.4, width * 0.9)
+            let along = max(step * 2.4, local * 0.9)
             addEllipse(
                 halo,
                 center: center,
                 angle: tangent,
                 length: along,
-                thickness: width * (1.08 + softness * 0.28) * wobble
+                thickness: local * (1.08 + softness * 0.28) * wobble
             )
             addEllipse(
                 core,
                 center: center,
                 angle: tangent,
                 length: along * 0.96,
-                thickness: width * (0.88 + softness * 0.06) * wobble
+                thickness: local * (0.88 + softness * 0.06) * wobble
             )
             serial += 1
             next += step
@@ -329,6 +364,8 @@ private func stampBase(
         samples: placed,
         width: width,
         style: style,
+        thickness: thickness,
+        closed: subpath.isClosed,
         join: join,
         miterLimit: miterLimit,
         serialBase: subpathIndex * 20_000 + 80_000,
@@ -345,6 +382,7 @@ private func stampGrit(
     into path: CGMutablePath,
     width: CGFloat,
     style: CrayonStyle,
+    thickness: ThicknessProfile,
     transform: CGAffineTransform,
     pass: Int,
     subpathIndex: Int,
@@ -357,9 +395,7 @@ private func stampGrit(
     // Flakes are a fraction of the wax width. The small floor keeps a mark on a
     // hairline without turning a thin stroke into one solid blob.
     let flake = max(0.45, width * (0.16 + 0.15 * CGFloat(style.flakeSize)))
-    let speck = max(0.28, flake * 0.34)
     let step = max(0.4, flake * 0.62)
-    let rows = min(4, max(2, Int((width * 0.55 / flake).rounded(.up))))
     var traveled: CGFloat = 0
     var next = step * 0.35
     var serial = subpathIndex * 20_000 + pass * 3_000
@@ -373,13 +409,18 @@ private func stampGrit(
         guard span > 0.01 else { continue }
         while next <= traveled + span && serial < budget {
             let t = min(1, max(0, (next - traveled) / span))
+            let alongT = start.t + (end.t - start.t) * t
+            let local = waxWidth(thickness, base: width, t: alongT, closed: subpath.isClosed)
+            let localFlake = max(0.45, local * (0.16 + 0.15 * CGFloat(style.flakeSize)))
+            let localSpeck = max(0.28, localFlake * 0.34)
+            let localRows = min(4, max(2, Int((local * 0.55 / max(localFlake, 0.45)).rounded(.up))))
             emitGrit(
                 at: lerp(start.point, end.point, t),
                 tangent: end.tangent,
-                width: width,
-                flake: flake,
-                speck: speck,
-                rows: rows,
+                width: local,
+                flake: localFlake,
+                speck: localSpeck,
+                rows: localRows,
                 style: style,
                 pass: pass,
                 serial: serial,
@@ -395,6 +436,8 @@ private func stampGrit(
         samples: placed,
         width: width,
         style: style,
+        thickness: thickness,
+        closed: subpath.isClosed,
         join: join,
         miterLimit: miterLimit,
         serialBase: subpathIndex * 20_000 + pass * 3_000 + 90_000,
@@ -412,6 +455,8 @@ private func stampCornerWax(
     samples: [CrayonSample],
     width: CGFloat,
     style: CrayonStyle,
+    thickness: ThicknessProfile,
+    closed: Bool,
     join: BrushJoin,
     miterLimit: CGFloat,
     serialBase: Int,
@@ -426,12 +471,15 @@ private func stampCornerWax(
         let turn = StrokeJoinGeometry.signedAngleDelta(samples[index].tangent, samples[index + 1].tangent)
         guard abs(turn) >= 0.45 else { continue }
         let vertex = samples[index].point
+        let incoming = waxWidth(thickness, base: width, t: samples[index].t, closed: closed)
+        let outgoing = waxWidth(thickness, base: width, t: samples[index + 1].t, closed: closed)
+        let mark = max(incoming, outgoing)
         let lines = StrokeJoinGeometry.sidePolylines(
             vertex: vertex,
             incomingTangent: samples[index].tangent,
             outgoingTangent: samples[index + 1].tangent,
-            incomingHalf: width / 2,
-            outgoingHalf: width / 2,
+            incomingHalf: incoming / 2,
+            outgoingHalf: outgoing / 2,
             join: join,
             miterLimit: miterLimit
         )
@@ -442,7 +490,7 @@ private func stampCornerWax(
             let dx = vertex.x - point.x
             let dy = vertex.y - point.y
             let span = hypot(dx, dy)
-            let steps = max(1, Int(ceil(span / max(2, width * 0.28))))
+            let steps = max(1, Int(ceil(span / max(2, mark * 0.28))))
             for step in 1...steps {
                 let u = CGFloat(step) / CGFloat(steps)
                 let center = CGPoint(x: vertex.x + (point.x - vertex.x) * u, y: vertex.y + (point.y - vertex.y) * u)
@@ -453,24 +501,24 @@ private func stampCornerWax(
                         halo,
                         center: center,
                         angle: samples[index + 1].tangent,
-                        length: width * 0.55,
-                        thickness: width * (0.72 + softness * 0.12)
+                        length: mark * 0.55,
+                        thickness: mark * (0.72 + softness * 0.12)
                     )
                     addEllipse(
                         core,
                         center: center,
                         angle: samples[index + 1].tangent,
-                        length: width * 0.42,
-                        thickness: width * 0.5
+                        length: mark * 0.42,
+                        thickness: mark * 0.5
                     )
                 }
                 if let grit, step == steps {
                     emitGrit(
                         at: center,
                         tangent: samples[index + 1].tangent,
-                        width: width,
-                        flake: max(0.45, width * (0.16 + 0.15 * CGFloat(style.flakeSize))),
-                        speck: max(0.28, width * 0.08),
+                        width: mark,
+                        flake: max(0.45, mark * (0.16 + 0.15 * CGFloat(style.flakeSize))),
+                        speck: max(0.28, mark * 0.08),
                         rows: 2,
                         style: style,
                         pass: pass,
@@ -599,7 +647,8 @@ private func transformed(_ samples: [CrayonSample], by transform: CGAffineTransf
     samples.map { sample in
         CrayonSample(
             point: sample.point.applying(transform),
-            tangent: transformedAngle(sample.tangent, transform)
+            tangent: transformedAngle(sample.tangent, transform),
+            t: sample.t
         )
     }
 }

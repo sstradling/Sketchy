@@ -937,6 +937,24 @@ RoughView()
     ]))
 ```
 
+### Closed crayon ring
+
+A closed circle keeps a variable width. The join blends back to the width at the start, and the crayon wax follows that width.
+
+![Closed crayon ring](images/brushes/closed-crayon-ring.png)
+
+```swift
+RoughView()
+    .stroke(Color(red: 0.18, green: 0.46, blue: 0.67))
+    .strokeWidth(11)
+    .roughness(1.1)
+    .bowing(0.6)
+    .brushProfile(.crayon(seed: 19))
+    .thicknessProfile(.variable(VariableStrokeWidth(variation: 0.55, seed: 19, frequency: 2)))
+    .seed(19)
+    .draw(Circle(x: 92, y: 92, diameter: 112))
+```
+
 ### Variable opacity
 
 Opacity stops run from faint to solid and back. The profile multiplies strokeOpacity, and one mask keeps the overlaps from turning dark.

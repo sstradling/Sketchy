@@ -481,13 +481,15 @@ struct StrokeToFillConverter {
         var leftSteps: [StrokeSideStep] = []
         var rightSteps: [StrokeSideStep] = []
         
-        // Closed paths stay an even strokeWidth so the join does not seam.
-        // Tapers, width stops, and variable noise are all dropped here.
-        let effectiveProfile = isClosed ? profile.withUniformThickness() : profile
-
+        // A closed contour keeps the profile. The width at the end is blended
+        // back to the width at the start, so the two sides of the join meet.
         func halfWidth(at t: CGFloat, tangent: CGFloat) -> CGFloat {
-            let localWidth = effectiveProfile.thicknessProfile.width(at: t, strokeWidth: baseWidth)
-            let effectiveWidth = effectiveProfile.tip.effectiveWidth(
+            let localWidth = profile.thicknessProfile.width(
+                at: t,
+                strokeWidth: baseWidth,
+                closed: isClosed
+            )
+            let effectiveWidth = profile.tip.effectiveWidth(
                 baseWidth: localWidth,
                 strokeAngle: tangent
             )

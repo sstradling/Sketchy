@@ -203,21 +203,19 @@ public enum RoughFillRule: Equatable, Hashable, Sendable {
 
 /// Convert `Drawing`/`OperationSet` data into SwiftUI `Path` commands and render them.
 public struct SwiftUIRenderer {
-    /// Open `.variable` and `.stops` strokes use winding so the two rough
-    /// passes union into one solid mark. Closed contours stay even-odd so
-    /// the inner edge of a ring stays a hole. Tapers, `.custom`, and an even
-    /// `.marker` stay even-odd.
-    static func brushFillRule(operations: [Operation], profile: BrushProfile) -> RoughFillRule {
+    /// `.variable` and `.stops` strokes use winding so the two rough passes
+    /// union into one solid mark. The outline is a ribbon, so the middle of
+    /// a closed ring stays empty. Tapers, `.custom`, and an even `.marker`
+    /// stay even-odd.
+    static func brushFillRule(operations _: [Operation], profile: BrushProfile) -> RoughFillRule {
         switch profile.thicknessProfile {
         case .variable:
-            break
+            return .winding
         case .stops(let stops) where !stops.isEmpty:
-            break
+            return .winding
         default:
             return .evenOdd
         }
-        let closed = operations.contains { $0 is Close }
-        return closed ? .evenOdd : .winding
     }
 
 
@@ -594,6 +592,7 @@ private extension SwiftUIRenderer {
                     operations: set.operations,
                     width: CGFloat(strokeWidth),
                     style: crayon,
+                    thickness: options.brushProfile.thicknessProfile,
                     color: strokeColor,
                     transform: svgTransform,
                     clipPath: nil,
@@ -1074,6 +1073,7 @@ private extension SwiftUIRenderer {
         operations: [Operation],
         width: CGFloat,
         style: CrayonStyle,
+        thickness: ThicknessProfile = .uniform,
         color: Color,
         transform: CGAffineTransform?,
         clipPath: SwiftPath?,
@@ -1085,6 +1085,7 @@ private extension SwiftUIRenderer {
             operations: operations,
             width: width,
             style: style,
+            thickness: thickness,
             transform: transform ?? .identity,
             join: join,
             miterLimit: miterLimit
