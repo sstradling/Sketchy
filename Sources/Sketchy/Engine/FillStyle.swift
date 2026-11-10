@@ -30,4 +30,9 @@ public enum FillStyle: String, Equatable, Hashable, Sendable {
     /// few blooms. A watercolor brush shares its style. Otherwise the fill uses
     /// `WatercolorStyle()`, and `Options.seed` replaces the default seed.
     case watercolor
+    /// Rough strokes that follow a guide curve instead of one straight angle.
+    ///
+    /// Set `contourGuide`, `contourIntensity`, and optionally `contourFalloff`
+    /// and `contourDrift`. Without a guide the strokes stay straight at `fillAngle`.
+    case contour
 }

@@ -573,6 +573,8 @@ private extension SwiftUIRenderer {
             alignment: alignment,
             clipPath: svgClipPath
         )
+        let fillLineScale: Float = set.fillLineScale.map { min(4, max(0.05, $0)) } ?? 1
+        let drawnFillWeight = effectiveFillWeight * fillLineScale
         
         switch set.type {
         case .path:
@@ -659,7 +661,7 @@ private extension SwiftUIRenderer {
             if let crayon = options.resolvedCrayonStyle {
                 let crayonCommands = crayonPasses(
                     operations: set.operations,
-                    width: CGFloat(effectiveFillWeight),
+                    width: CGFloat(drawnFillWeight),
                     style: crayon,
                     color: color,
                     transform: svgTransform,
@@ -675,7 +677,7 @@ private extension SwiftUIRenderer {
             return [
                 RoughRenderCommand(
                     path: path,
-                    style: .stroke(color, lineWidth: CGFloat(effectiveFillWeight)),
+                    style: .stroke(color, lineWidth: CGFloat(drawnFillWeight)),
                     clipPath: clipPath,
                     inverseClip: inverseClip,
                     cap: options.strokeCap,
@@ -758,7 +760,7 @@ private extension SwiftUIRenderer {
                 if let crayon = options.resolvedCrayonStyle {
                     let crayonCommands = crayonPasses(
                         operations: set.operations,
-                        width: CGFloat(effectiveFillWeight),
+                        width: CGFloat(drawnFillWeight),
                         style: crayon,
                         color: color,
                         transform: svgTransform,
@@ -774,7 +776,7 @@ private extension SwiftUIRenderer {
                 return [
                     RoughRenderCommand(
                         path: hachurePath,
-                        style: .stroke(color, lineWidth: CGFloat(effectiveFillWeight)),
+                        style: .stroke(color, lineWidth: CGFloat(drawnFillWeight)),
                         clipPath: shapePath,
                         inverseClip: false,
                         cap: options.strokeCap,
@@ -787,7 +789,7 @@ private extension SwiftUIRenderer {
                 return [
                     RoughRenderCommand(
                         path: shapePath,
-                        style: .stroke(color, lineWidth: CGFloat(effectiveFillWeight)),
+                        style: .stroke(color, lineWidth: CGFloat(drawnFillWeight)),
                         clipPath: clipPath,
                         inverseClip: inverseClip,
                         cap: options.strokeCap,

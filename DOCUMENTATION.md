@@ -161,6 +161,12 @@ Pass any `Drawable` type for precise positioning.
 | `.fillSpacingPattern(_ pattern:)` | `[Float]` | Variable spacing for gradients |
 | `.fillPadding(_ value:)` | `CGFloat` | Inset of the fill from the outline. Default `0`. Negative grows the fill |
 | `.fillOffset(_ value:)` | `CGSize` | Shifts the fill. Default `.zero`. Also `.fillOffset(x:y:)` |
+| `.contourGuide(_:)` | `ContourGuide` | Arc or polyline the `.contour` strokes follow |
+| `.contourIntensity(_:)` | `Float` | `0` straight, `1` follows the guide, above `1` exaggerates |
+| `.contourIntensity(from:to:angle:easing:)` | start, end, degrees, `ContourEasing` | Curvature ramp. `90` runs top to bottom |
+| `.contourFalloff(_:)` | `Float` `0...1` | Shrinks spacing and width toward the guide |
+| `.contourDrift(angle:speed:phase:)` | degrees, points/second, points | Pins the scrolling field. `speed` `0` stays cached |
+| `.animatedContour(angle:speed:)` | degrees, points/second | Plays the drift. Returns `ContourDriftView` |
 
 ### Curve Modifiers
 
@@ -558,6 +564,16 @@ public struct Options: Equatable, Hashable {
     public var dashOffset: Float = -1
     public var dashGap: Float = -1
     public var zigzagOffset: Float = -1
+
+    // Contour fill. Ignored by other fill styles.
+    public var contourGuide: ContourGuide? = nil
+    public var contourIntensity: Float = 1          // 0 straight, 1 follows the guide
+    public var contourIntensityStart: Float? = nil  // nil uses contourIntensity
+    public var contourIntensityEnd: Float? = nil
+    public var contourGradientAngle: Float = 90     // ramp direction, y down
+    public var contourEasing: ContourEasing = .linear
+    public var contourFalloff: Float = 0            // 0 uniform, 1 strongest
+    public var contourDrift: ContourDrift? = nil
     
     // Scribble
     public var scribbleOrigin: Float = 0
@@ -604,6 +620,7 @@ public enum FillStyle: String {
     case zigzagLine     // Single zigzag line
     case scribble       // Continuous zig-zag traversal
     case watercolor     // Clipped wash with a darker rim
+    case contour        // Curved strokes that follow a guide
 }
 ```
 
@@ -628,7 +645,59 @@ RoughView().fill(.orange).fillStyle(.scribble).scribbleOrigin(85).scribbleTightn
 
 // Watercolor wash, inset from the outline
 RoughView().fill(.blue).fillStyle(.watercolor).fillPadding(12).circle()
+
+// Contour: strokes follow an arc, flatter toward the bottom
+RoughView()
+    .fill(.green)
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 120, y: 360), radius: 280))
+    .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+    .contourFalloff(0.6)
+    .fillWeight(3)
+    .fillSpacing(2.5)
+    .brushProfile(.crayon)
+    .seed(19)
+    .circle()
 ```
+
+### Contour fill
+
+`.contour` draws the same rough centerlines as hachure, then bends each one
+along a guide. `0` intensity is the straight chord of that guide. `1` follows
+the guide curve. Above `1` exaggerates the bow. A single `.contourIntensity`
+uses that value everywhere. `.contourIntensity(from:to:angle:easing:)` ramps
+it across the shape. `angle` `0` runs left to right and `90` runs top to
+bottom. The ramp is sampled along each stroke, so the bow can change from one
+side of a line to the other.
+
+`ContourGuide.arc` takes a center and radius in the shape's coordinates.
+`ContourGuide.polyline` or `ContourGuide.path` uses an open or closed curve.
+The same guide can fill a ground shape and a lake: the strokes follow the
+ground, and the lake path clips them. With no guide, strokes stay straight at
+`fillAngle`.
+
+On an arc, intensity `1` all the way to a nearby center tightens into rings.
+Drop the intensity on that side of the gradient. The Glider grass uses a value
+near `1` at the horizon and near `0.45` at the bottom.
+
+`.contourFalloff` from `0` to `1` packs strokes toward the guide and thins
+them, down to about 22% of the far-side gap and width. Width is grouped into
+10% bands so each band is one crayon pass. `fillSpacing` and `fillWeight`
+still set the nominal gap and width. `fillPadding` and `fillOffset` change
+the clipped shape and do not move the guide.
+
+SVG paths clip with the even-odd rule, so a hole stays empty. Polygon strokes
+are clipped the same way, including a notch. Ellipse and rounded-rectangle
+fills are clipped to a polygon of the outline.
+
+`.contourDrift(angle:speed:phase:)` slides the field along `angle` by `phase`
+points. `speed` is points per second and is stored for the player.
+`.animatedContour(angle:speed:)` advances the phase from when the view
+appears. The motion uses only the component along the guide's offset
+direction, so an angle parallel to the strokes does not scroll them. The
+field wraps. Each slot keeps its roughness seed, and the outline is not
+re-rolled. A moving view skips the drawing cache. A pinned phase (`speed` `0`)
+stays cached. Set `seed` or the wobble is new on every uncached build.
 
 Scribble fills are clipped for potentially concave outlines: SVG paths
 and native `Polygon` drawables. This prevents the continuous zig-zag line
@@ -1344,6 +1413,26 @@ AnimatedRoughView(
         .rectangle()
 }
 .frame(width: 150, height: 100)
+```
+
+### Contour drift
+
+`.animated()` varies a finished drawing. `.animatedContour(angle:speed:)` is
+separate: it scrolls a `.contour` fill at `speed` points per second along
+`angle`. The strokes stay clipped, including even-odd holes, and wrap as a
+stable seeded field. Pin one frame with `.contourDrift(angle:speed:phase:)`
+and `speed` `0`.
+
+```swift
+RoughView()
+    .fill(.green)
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 80, y: 220), radius: 180))
+    .contourIntensity(from: 1, to: 0.4, angle: 90)
+    .seed(19)
+    .rectangle()
+    .animatedContour(angle: 90, speed: 24)
+    .frame(width: 160, height: 120)
 ```
 
 ---

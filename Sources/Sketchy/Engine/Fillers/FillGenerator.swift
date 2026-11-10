@@ -41,6 +41,12 @@ public protocol FillGenerator {
     ///   - options: Rendering options
     /// - Returns: An OperationSet containing the fill operations, or nil if not supported
     func fillArc(cx: Float, cy: Float, rx: Float, ry: Float, start: Float, stop: Float, options: Options) -> OperationSet?
+
+    /// One or more fill sets. Contour falloff returns one set per width band.
+    func fillPolygonSets(points: [[Float]], options: Options) -> [OperationSet]
+
+    /// One or more ellipse fill sets. Contour falloff returns one set per width band.
+    func fillEllipseSets(cx: Float, cy: Float, rx: Float, ry: Float, options: Options) -> [OperationSet]
 }
 
 // MARK: - Default Implementations
@@ -60,6 +66,18 @@ extension FillGenerator {
         points.append([cx + rx * cos(stop), cy + ry * sin(stop)])
         
         return fillPolygon(points: points, options: options)
+    }
+
+    /// One or more fill sets. The default is the single set from `fillPolygon`.
+    public func fillPolygonSets(points: [[Float]], options: Options) -> [OperationSet] {
+        guard let set = fillPolygon(points: points, options: options) else { return [] }
+        return [set]
+    }
+
+    /// One or more ellipse fill sets. The default is the single set from `fillEllipse`.
+    public func fillEllipseSets(cx: Float, cy: Float, rx: Float, ry: Float, options: Options) -> [OperationSet] {
+        guard let set = fillEllipse(cx: cx, cy: cy, rx: rx, ry: ry, options: options) else { return [] }
+        return [set]
     }
 }
 
@@ -103,6 +121,8 @@ public struct FillPatternFactory {
         case .watercolor:
             // The wash is painted by the renderer. The filler only supplies the shape.
             newFiller = SolidFiller()
+        case .contour:
+            newFiller = ContourFiller()
         }
         
         fillers[style] = newFiller

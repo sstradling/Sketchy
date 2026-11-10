@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `.fillStyle(.contour)` draws rough strokes along a guide arc or polyline. `contourIntensity` is `0` for a straight chord and `1` to follow the guide. A start and end intensity, an angle, and an easing ramp the bow across the shape. `contourFalloff` packs and thins strokes toward the guide. `.animatedContour(angle:speed:)` scrolls a seeded field without re-rolling wobble. SVG holes stay empty under the even-odd clip.
+
 ## [1.5.0] - 2026-11-09
 
 - The sticker docs now cover the full set of options: width and smoothness, `.smooth` versus `.fullySmooth()` versus `.torn()`, backing color and paper grain, image masking, `SketchGroup` with `SketchPart` transforms, and `StickerShadow`. README, `DOCUMENTATION.md`, `llms.txt`, the demo, and the generated gallery in `docs/Examples.md` agree.
