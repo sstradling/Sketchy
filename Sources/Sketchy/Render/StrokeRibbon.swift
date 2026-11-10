@@ -162,7 +162,6 @@ enum OpacityRibbon {
         var pieces: [RibbonPiece] = []
         for operations in sets {
             for line in StrokeToFillConverter.centerlines(operations: operations, transform: transform) {
-                let widthBrush = line.isClosed ? brush.withUniformThickness() : brush
                 let opacityAt = blendedOpacity(
                     closed: line.isClosed,
                     profile: opacityProfile,
@@ -173,9 +172,13 @@ enum OpacityRibbon {
                     isClosed: line.isClosed,
                     cap: brush.cap,
                     geometry: { sample in
-                        let multiplier = widthBrush.thicknessProfile.multiplier(at: sample.t)
-                        let width = widthBrush.tip.effectiveWidth(
-                            baseWidth: baseWidth * multiplier,
+                        let local = brush.thicknessProfile.width(
+                            at: sample.t,
+                            strokeWidth: baseWidth,
+                            closed: line.isClosed
+                        )
+                        let width = brush.tip.effectiveWidth(
+                            baseWidth: local,
                             strokeAngle: sample.tangent
                         )
                         return StrokeRibbon.SampleGeometry(

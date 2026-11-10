@@ -133,7 +133,7 @@ struct WhatsNewView: View {
 
                 Divider()
 
-                section("Variable Marker", detail: "An open stroke. Closed shapes keep an even width.") {
+                section("Variable Marker", detail: "Width can swell on a closed shape. The join blends back to the start.") {
                     VStack(spacing: 16) {
                         markerLine("even", profile: .marker)
                         markerLine("variation 0.4", profile: .marker(variation: 0.4, seed: 4))

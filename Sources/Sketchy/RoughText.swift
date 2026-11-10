@@ -284,8 +284,8 @@ public extension RoughText {
 
     /// Set absolute stroke widths at positions along an open stroke.
     ///
-    /// Widths are points. See `RoughView.widthStops(_:)`. Most glyph outlines
-    /// are closed, and closed contours keep an even `strokeWidth`.
+    /// Widths are points. See `RoughView.widthStops(_:)`. A closed glyph keeps
+    /// the stops and blends the join back to the width at the start.
     ///
     /// - Parameter stops: `(position, width)` pairs. Position is 0...1, width is points.
     /// - Returns: The text view with `ThicknessProfile.stops`.

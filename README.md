@@ -76,7 +76,9 @@ RoughView()
 
 ### Fills
 
-`.sunBurst` draws rays from the center. `.starBurst` uses the same filler. Other styles are `.hachure`, `.solid`, `.zigzag`, `.crossHatch`, `.dots`, `.dashed`, `.zigzagLine`, and `.scribble`.
+`.sunBurst` draws rays from the center. `.starBurst` uses the same filler. Other styles are `.hachure`, `.solid`, `.zigzag`, `.crossHatch`, `.dots`, `.dashed`, `.zigzagLine`, `.scribble`, `.watercolor`, and `.contour`.
+
+`.interiorShades` paints inside the finished shape without changing the sketch. `.pitShadow` is a 60% black inner shadow, 9 points down, blur 4. `.pitRecess` is the vertical black gradient on the small pits. `.edgeShade()` darkens the rim. `.halo(color:)` is the soft ring just outside the outline. A hole stays empty.
 
 ![Sunburst](docs/images/fills/sunburst.png)
 
@@ -392,6 +394,26 @@ let outline = NativeStrokeOutline.path(
 
 SVG paths and native polygons clip the scribble to the padded fill, so a concave outline cannot leak across notches. Rectangles, circles, and ellipses are not clipped.
 
+### Contour
+
+`.fillStyle(.contour)` bends each fill stroke along a guide. `.contourIntensity(0)` is straight, `1` follows the guide, and higher values exaggerate the bow. `.contourIntensity(from:to:angle:easing:)` ramps that bow across the shape (`90` is top to bottom). `.contourGuide` takes an arc or a polyline in the shape's coordinates, so a lake can reuse the ground's arc. `.contourFalloff` packs and thins strokes toward the guide. `.animatedContour(angle:speed:)` scrolls the field in points per second without re-rolling the wobble.
+
+`.fillStyle(.wash)` is the sky crayon wash: separate strokes around `fillAngle`, two width passes, end trim, and a sine bow. `WashPass.sky` is the mockup recipe. `scaled(by:)` shrinks it. Setting `washPasses` on a `.contour` fill strokes those curves with the same recipe.
+
+```swift
+RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+    .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+    .fillWeight(2.4)
+    .fillSpacing(3.2)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(19)
+    .circle()
+```
+
 ### SVG paths
 
 `.draw(Path(d:))` scales the path to the view and keeps its aspect ratio. `.svgStrokeWidth`, `.svgFillWeight`, and `.svgFillStrokeAlignment` (`.center`, `.inside`, `.outside`) apply to that path. Text is also stored as a path, but it is placed in the view and is not scaled to fit.
@@ -420,9 +442,9 @@ RoughView()
     .draw(Line(from: Point(x: 24, y: 100), to: Point(x: 168, y: 92)))
 ```
 
-`.thicknessProfile(.naturalPen)` tapers an open stroke. Closed shapes keep an even width so the join does not seam. A variable marker does the same on a closed contour.
+`.thicknessProfile(.naturalPen)` tapers a stroke. On a closed contour the end blends back to the width at the start, so the join does not step.
 
-`.widthStops([(0, 4), (0.1, 8), (0.9, 8), (1, 4)])` sets those widths in points: 4pt at the start, 8pt from 10% to 90% of the length, then 4pt. `strokeWidth` does not scale a non-empty list. `.custom([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5])` with `strokeWidth` 8 is the same curve, as evenly spaced multipliers. Stops replace a `.variable` wobble. The marker's flat tip still changes width with direction. Closed contours ignore the stops.
+`.widthStops([(0, 4), (0.1, 8), (0.9, 8), (1, 4)])` sets those widths in points: 4pt at the start, 8pt from 10% to 90% of the length, then 4pt. `strokeWidth` does not scale a non-empty list. `.custom([0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5])` with `strokeWidth` 8 is the same curve, as evenly spaced multipliers. Stops replace a `.variable` wobble. The marker's flat tip still changes width with direction. A closed ring keeps the stops, and a crayon brush scales its wax by the same profile.
 
 ![Width stops](docs/images/brushes/width-stops.png)
 
