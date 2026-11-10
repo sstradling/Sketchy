@@ -574,7 +574,8 @@ private extension SwiftUIRenderer {
             clipPath: svgClipPath
         )
         let fillLineScale: Float = set.fillLineScale.map { min(4, max(0.05, $0)) } ?? 1
-        let drawnFillWeight = effectiveFillWeight * fillLineScale
+        let drawnFillWeight = set.fillLineWidth ?? (effectiveFillWeight * fillLineScale)
+        let opacityScale = Double(set.opacityScale ?? 1)
         
         switch set.type {
         case .path:
@@ -657,7 +658,7 @@ private extension SwiftUIRenderer {
             } else {
                 path = basePath
             }
-            let color = Color(options.fill).opacity(Double(options.fillOpacity))
+            let color = Color(options.fill).opacity(Double(options.fillOpacity) * opacityScale)
             if let crayon = options.resolvedCrayonStyle {
                 let crayonCommands = crayonPasses(
                     operations: set.operations,
@@ -751,7 +752,7 @@ private extension SwiftUIRenderer {
                 shapePath = shapeBasePath
             }
             
-            let color = Color(options.fill).opacity(Double(options.fillOpacity))
+            let color = Color(options.fill).opacity(Double(options.fillOpacity) * opacityScale)
             
             // If there are hachure operations, render them clipped to the shape.
             // A crayon brush stamps those lines as wax instead of a solid stroke.

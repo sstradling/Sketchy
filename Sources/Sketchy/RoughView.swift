@@ -387,6 +387,16 @@ public extension RoughView {
     ///
     /// The stroke wobble stays with each seeded slot and the field wraps.
     /// The outline is not re-rolled. Playback does not use the drawing cache.
+    /// Crayon-wash bands. `.wash` uses `WashPass.sky` when this is nil.
+    ///
+    /// On `.contour`, the bands trim and bow each contour stroke and set its width.
+    /// The base direction is `fillAngle`.
+    func washPasses(_ passes: [WashPass]?) -> Self {
+        var v = self
+        v.options.washPasses = passes
+        return v
+    }
+
     func animatedContour(angle: Float, speed: Float) -> ContourDriftView {
         ContourDriftView(base: self, angle: angle, speed: speed)
     }

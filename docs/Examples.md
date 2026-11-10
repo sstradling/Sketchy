@@ -647,6 +647,25 @@ RoughView()
     .circle()
 ```
 
+### Sky wash
+
+Separate crayon strokes at -20°, with two width passes, end trim, and a small sine bow.
+
+![Sky wash](images/fills/sky-wash.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.18, green: 0.46, blue: 0.67))
+    .fillStyle(.wash)
+    .fillAngle(-20)
+    .washPasses(WashPass.sky(scale: 0.18))
+    .brushProfile(.crayon)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(19)
+    .rectangle()
+```
+
 ## Strokes
 
 Width, colour, opacity, and several lines in one view. Each outline is drawn as two offset passes.

@@ -35,4 +35,9 @@ public enum FillStyle: String, Equatable, Hashable, Sendable {
     /// Set `contourGuide`, `contourIntensity`, and optionally `contourFalloff`
     /// and `contourDrift`. Without a guide the strokes stay straight at `fillAngle`.
     case contour
+    /// Separate crayon strokes, each with its own angle, width, trim, and sine bow.
+    ///
+    /// `washPasses` lists the bands. `nil` uses `WashPass.sky`. The same recipe
+    /// can stroke a `.contour` fill when `washPasses` is set on that view.
+    case wash
 }

@@ -546,7 +546,9 @@ public final class NativeGenerator {
                 operations: set.operations,
                 path: path,
                 size: size,
-                fillLineScale: set.fillLineScale
+                fillLineScale: set.fillLineScale,
+                fillLineWidth: set.fillLineWidth,
+                opacityScale: set.opacityScale
             )
         }
     }

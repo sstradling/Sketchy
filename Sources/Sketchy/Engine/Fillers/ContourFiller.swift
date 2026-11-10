@@ -33,6 +33,9 @@ public struct ContourFiller: FillGenerator {
     public func fillPolygonSets(points: [[Float]], options: Options) -> [OperationSet] {
         let plan = ContourGeometry.plan(polygon: points, options: options)
         guard !plan.strokes.isEmpty else { return [] }
+        if let passes = options.washPasses, !passes.isEmpty {
+            return washContour(plan: plan, passes: passes, seed: options.seed ?? passes[0].seed)
+        }
 
         var bands: [Band] = []
         var pieceCount: [Int: Int] = [:]
@@ -83,6 +86,44 @@ public struct ContourFiller: FillGenerator {
 
     public func fillEllipseSets(cx: Float, cy: Float, rx: Float, ry: Float, options: Options) -> [OperationSet] {
         fillPolygonSets(points: ellipsePolygon(cx: cx, cy: cy, rx: rx, ry: ry), options: options)
+    }
+
+    /// Strokes each contour centerline with the wash recipe: trim, sine bow, and per-pass width.
+    private func washContour(plan: ContourPlan, passes: [WashPass], seed: UInt64) -> [OperationSet] {
+        var sets: [OperationSet] = []
+        for pass in passes {
+            var random = WashRandom(seed: ContourField.mix(seed, Int(pass.seed & 0x7fff_ffff)))
+            var operations: [Operation] = []
+            for stroke in plan.strokes {
+                let trimA = pass.trimMax * (0.35 + 0.65 * random.unit())
+                let trimB = pass.trimMax * (0.35 + 0.65 * random.unit())
+                let bow = (random.unit() - 0.5) * min(pass.bow, 8)
+                let shaped = WashStrokeBuilder.shape(
+                    stroke.points,
+                    trimStart: trimA,
+                    trimEnd: trimB,
+                    bow: bow
+                )
+                guard shaped.count >= 2 else { continue }
+                let slotSeed = ContourField.mix(ContourField.mix(seed, stroke.slot), Int(pass.seed & 0x7fff_ffff))
+                operations.append(contentsOf: WashStrokeBuilder.operations(
+                    points: shaped,
+                    seed: slotSeed,
+                    pass: pass
+                ))
+            }
+            guard !operations.isEmpty else { continue }
+            let width = pass.widthMin + pass.widthSpan * 0.5
+            sets.append(OperationSet(
+                type: .fillSketch,
+                operations: operations,
+                path: nil,
+                size: nil,
+                fillLineWidth: width,
+                opacityScale: min(1, pass.opacityMin + pass.opacitySpan * 0.5)
+            ))
+        }
+        return sets
     }
 
     private struct Band {

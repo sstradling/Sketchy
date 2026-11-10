@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `.fillStyle(.wash)` draws separate crayon strokes around `fillAngle`, with per-stroke angle scatter, end trim, a sine bow, and one or more width passes. `WashPass.sky` is the two-pass sky recipe. The same passes stroke a `.contour` fill when `washPasses` is set.
 - `.fillStyle(.contour)` draws rough strokes along a guide arc or polyline. Each stroke spans the shape. `contourIntensity` `0` is a straight chord and `1` uses the guide's bow. A lower intensity flattens that bow instead of shrinking it onto a tighter circle. A start and end intensity, an angle, and an easing ramp the bow across the shape without the strokes crossing. `contourFalloff` packs and thins strokes toward the guide and opens them toward the far side. `.animatedContour(angle:speed:)` scrolls a seeded field without re-rolling wobble. SVG holes stay empty under the even-odd clip. Short clips are dropped.
 
 ## [1.5.0] - 2026-11-09
