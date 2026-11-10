@@ -383,10 +383,6 @@ public extension RoughView {
         return v
     }
 
-    /// Scrolls a contour fill along `angle` at `speed` points per second.
-    ///
-    /// The stroke wobble stays with each seeded slot and the field wraps.
-    /// The outline is not re-rolled. Playback does not use the drawing cache.
     /// Crayon-wash bands. `.wash` uses `WashPass.sky` when this is nil.
     ///
     /// On `.contour`, the bands trim and bow each contour stroke and set its width.
@@ -397,6 +393,10 @@ public extension RoughView {
         return v
     }
 
+    /// Scrolls a contour fill along `angle` at `speed` points per second.
+    ///
+    /// The stroke wobble stays with each seeded slot and the field wraps.
+    /// The outline is not re-rolled. Playback does not use the drawing cache.
     func animatedContour(angle: Float, speed: Float) -> ContourDriftView {
         ContourDriftView(base: self, angle: angle, speed: speed)
     }
