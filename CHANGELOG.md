@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `.interiorShades` paints inside a closed shape, or a soft band just outside it. `.pitShadow` is a 60% black inner shadow offset 9 points down with blur 4, clipped to the interior. `.pitRecess` is the vertical black gradient used on the small pits. `.edgeShade()` darkens the rim. `.halo(color:)` is the hit ring. The generator ignores the list, so the drawing cache and `Options.seed` are unchanged. Holes stay empty. `StickerShadow` is still the outer drop shadow of the paper.
 - `.fillStyle(.wash)` draws separate crayon strokes around `fillAngle`, with per-stroke angle scatter, end trim, a sine bow, and one or more width passes. `WashPass.sky` is the two-pass sky recipe. The same passes stroke a `.contour` fill when `washPasses` is set.
 - `.fillStyle(.contour)` draws rough strokes along a guide arc or polyline. Each stroke spans the shape. `contourIntensity` `0` is a straight chord and `1` uses the guide's bow. A lower intensity flattens that bow instead of shrinking it onto a tighter circle. A start and end intensity, an angle, and an easing ramp the bow across the shape without the strokes crossing. `contourFalloff` packs and thins strokes toward the guide and opens them toward the far side. `.animatedContour(angle:speed:)` scrolls a seeded field without re-rolling wobble. SVG holes stay empty under the even-odd clip. Short clips are dropped.
 

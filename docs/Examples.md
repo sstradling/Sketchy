@@ -627,6 +627,24 @@ RoughView()
     .circle()
 ```
 
+### Pit shade
+
+An inner shadow and a vertical recess stay inside the shape. The sketch is unchanged, and a hole would stay empty.
+
+![Pit shade](images/fills/pit-shade.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.76, green: 0.32, blue: 0.28))
+    .fillStyle(.solid)
+    .stroke(Color.white)
+    .strokeWidth(5)
+    .roughness(0.4)
+    .seed(11)
+    .interiorShades([.pitShadow, .pitRecess])
+    .circle()
+```
+
 ### Contour fill
 
 Strokes follow an arc below the circle. Curvature eases from the crest toward a gentler bow.

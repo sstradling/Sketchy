@@ -12,14 +12,15 @@ The sample app is `Example/SketchyDemo`. Open `SketchyDemoApp.xcodeproj` and run
 4. [Drawable Types](#drawable-types)
 5. [Options Reference](#options-reference)
 6. [Fill Styles](#fill-styles)
-7. [Text Rendering](#text-rendering)
-8. [Brush Profiles](#brush-profiles)
-9. [Sticker Backing](#sticker-backing)
-10. [Animation](#animation)
-11. [Stroke Continuity](#stroke-continuity)
-12. [Engine & Caching](#engine--caching)
-13. [Common Patterns](#common-patterns)
-14. [Troubleshooting](#troubleshooting)
+7. [Interior Shades](#interior-shades)
+8. [Text Rendering](#text-rendering)
+9. [Brush Profiles](#brush-profiles)
+10. [Sticker Backing](#sticker-backing)
+11. [Animation](#animation)
+12. [Stroke Continuity](#stroke-continuity)
+13. [Engine & Caching](#engine--caching)
+14. [Common Patterns](#common-patterns)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -161,6 +162,8 @@ Pass any `Drawable` type for precise positioning.
 | `.fillSpacingPattern(_ pattern:)` | `[Float]` | Variable spacing for gradients |
 | `.fillPadding(_ value:)` | `CGFloat` | Inset of the fill from the outline. Default `0`. Negative grows the fill |
 | `.fillOffset(_ value:)` | `CGSize` | Shifts the fill. Default `.zero`. Also `.fillOffset(x:y:)` |
+| `.interiorShades(_ shades:)` | `[InteriorShade]` | Replaces shades clipped inside the shape, and halos outside it |
+| `.interiorShade(_ shade:)` | `InteriorShade` | Appends one shade |
 | `.contourGuide(_:)` | `ContourGuide` | Arc or polyline the `.contour` strokes follow |
 | `.contourIntensity(_:)` | `Float` | `0` straight, `1` follows the guide, above `1` exaggerates |
 | `.contourIntensity(from:to:angle:easing:)` | start, end, degrees, `ContourEasing` | Curvature ramp. `90` runs top to bottom |
@@ -727,6 +730,36 @@ centerline is trimmed, given the sine bow, and drawn at the pass width.
 Scribble fills are clipped for potentially concave outlines: SVG paths
 and native `Polygon` drawables. This prevents the continuous zig-zag line
 from leaking across concave notches between ray intersections.
+
+---
+
+## Interior Shades
+
+`StickerShadow` drops a shadow of the paper behind the sheet. `InteriorShade` paints inside the shape, or a thin glow just outside the outline. The generator does not read the list, so the sketch and the drawing cache stay the same. `Options.cacheHash` includes the list because the pixels change. Nothing here uses `Options.seed`.
+
+Clipped shades are drawn after the fill and before the stroke. A halo is drawn after the stroke. An open contour (a line, a curve, an open arc) is skipped. The clip is even-odd, so a hole in an SVG path stays empty.
+
+```swift
+RoughView()
+    .fill(Color(red: 0.76, green: 0.32, blue: 0.28))
+    .fillStyle(.solid)
+    .stroke(Color.white)
+    .strokeWidth(5)
+    .interiorShades([.pitShadow, .pitRecess])
+    .circle()
+```
+
+| API | What it draws |
+| --- | --- |
+| `.innerShadow(opacity:x:y:blur:color:)` | Shadow of the exterior, clipped to the interior. Default opacity `0.6`, offset `(0, 9)`, blur `4`, black. Positive `y` darkens the top. |
+| `.pitShadow` | That default. The maze pit. |
+| `.linear(_:angle:)` | Gradient across the shape bounds. `0` is left to right. `90` is top to bottom. |
+| `.pitRecess` | Black from 62% at the top, through 40%, to 22% at the bottom. The small red pits. |
+| `.radial(_:center:startRadius:endRadius:)` | Radial gradient. Radii are fractions of half the smaller side. `center` defaults to `.center`. |
+| `.edgeShade(color:opacity:inner:)` | Clear until `inner` (default `0.62`), then the colour at the rim. Default colour is red at `0.55`. |
+| `.halo(color:opacity:glow:width:blur:)` | Band of `width` points outside the outline (default `3.5`), then a blur (default `2`). Band opacity `0.55`, glow opacity `0.3`. The hit ring. |
+
+`opacity` `0` on an inner shadow draws nothing. An empty stop list draws nothing. Pass `Color` or `UIColor` where both overloads exist, for example `Color.black`.
 
 ---
 
@@ -1710,6 +1743,10 @@ RoughView()
 ---
 
 ## Troubleshooting
+
+### Issue: Inner shadow covers the background
+
+The shadow is clipped to the shape. A pixel outside the outline is unchanged. A hole in an SVG path stays empty. `StickerShadow` is the one that paints behind the paper and can extend past the sheet.
 
 ### Issue: Shape Not Visible
 

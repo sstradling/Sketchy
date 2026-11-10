@@ -891,6 +891,23 @@ public extension RoughView {
         ))
     }
     
+    /// Replaces the interior shades. An empty list draws none.
+    ///
+    /// Clipped shades paint after the fill and before the stroke. A halo
+    /// paints after the stroke. The sketch itself is unchanged.
+    func interiorShades(_ shades: [InteriorShade]) -> Self {
+        var v = self
+        v.options.interiorShades = shades
+        return v
+    }
+
+    /// Appends one interior shade, after any already set.
+    func interiorShade(_ shade: InteriorShade) -> Self {
+        var v = self
+        v.options.interiorShades.append(shade)
+        return v
+    }
+
     // MARK: - Animation
     
     /// Wraps this RoughView in an AnimatedRoughView with the given configuration.

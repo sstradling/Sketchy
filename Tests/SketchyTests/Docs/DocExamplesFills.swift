@@ -585,6 +585,33 @@ extension DocExampleCatalog {
                 .circle()
         },
         still(
+            "pit-shade",
+            section: "Fills",
+            title: "Pit shade",
+            description: "An inner shadow and a vertical recess stay inside the shape. The sketch is unchanged, and a hole would stay empty.",
+            snippet: """
+            RoughView()
+                .fill(\(coral.snippet))
+                .fillStyle(.solid)
+                .stroke(Color.white)
+                .strokeWidth(5)
+                .roughness(0.4)
+                .seed(11)
+                .interiorShades([.pitShadow, .pitRecess])
+                .circle()
+            """
+        ) {
+            RoughView()
+                .fill(coral.color)
+                .fillStyle(.solid)
+                .stroke(Color.white)
+                .strokeWidth(5)
+                .roughness(0.4)
+                .seed(11)
+                .interiorShades([.pitShadow, .pitRecess])
+                .circle()
+        },
+        still(
             "contour-dome",
             section: "Fills",
             title: "Contour fill",

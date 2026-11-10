@@ -78,6 +78,8 @@ RoughView()
 
 `.sunBurst` draws rays from the center. `.starBurst` uses the same filler. Other styles are `.hachure`, `.solid`, `.zigzag`, `.crossHatch`, `.dots`, `.dashed`, `.zigzagLine`, `.scribble`, `.watercolor`, and `.contour`.
 
+`.interiorShades` paints inside the finished shape without changing the sketch. `.pitShadow` is a 60% black inner shadow, 9 points down, blur 4. `.pitRecess` is the vertical black gradient on the small pits. `.edgeShade()` darkens the rim. `.halo(color:)` is the soft ring just outside the outline. A hole stays empty.
+
 ![Sunburst](docs/images/fills/sunburst.png)
 
 ```swift
