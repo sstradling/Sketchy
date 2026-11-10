@@ -1742,6 +1742,27 @@ RoughView()
 
 ---
 
+### Image silhouette shadow
+
+`SilhouetteShadow` is not `StickerShadow`. It takes a `UIImage` or a `CGImage` mask, replaces the colour, and draws the alpha with an affine transform around an anchor.
+
+```swift
+RoughView()
+    .draw(SilhouetteShadow.tree(image: sprite, at: CGPoint(x: 120, y: 160)))
+```
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `color` | rgb(22, 48, 14) | Replaces the image colour. Alpha multiplies `opacity`. |
+| `opacity` | `0.42` | `0` draws nothing. |
+| `transform` | skew `-0.58`, squash `0.32` | Applied around `anchor`. |
+| `anchor` | required | Image point, y down from the top, that stays fixed. |
+| `position` | required | Where `anchor` lands in the view. |
+
+`footAnchor(in:)` is the middle of the lowest row with alpha above 20. `.tree(image:at:)` uses that anchor. The view paints the shadow directly. It does not call the generator, so `Options.seed` and the drawing cache are unchanged. The same image and transform repeat the same pixels.
+
+---
+
 ## Troubleshooting
 
 ### Issue: Inner shadow covers the background

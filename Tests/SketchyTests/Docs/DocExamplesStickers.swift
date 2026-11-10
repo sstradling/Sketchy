@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 @testable import Sketchy
 
 extension DocExampleCatalog {
@@ -335,8 +336,35 @@ extension DocExampleCatalog {
                     shadow: StickerShadow(opacity: 0.4, x: 0, y: 8, radius: 6, color: Color.black)
                 )
                 .draw(EggShape(x: 92, y: 84, width: 64, height: 86, tilt: 0.2))
+        },
+        still(
+            "tree-shadow",
+            section: "Stickers",
+            title: "Tree shadow",
+            description: "SilhouetteShadow.tree tints the sprite alpha rgb(22, 48, 14) at 42%, skews it -0.58, squashes it to 0.32, and pins the lowest opaque row.",
+            snippet: """
+            RoughView()
+                .seed(19)
+                .draw(SilhouetteShadow.tree(image: sprite, at: CGPoint(x: 120, y: 156)))
+            """
+        ) {
+            RoughView()
+                .seed(19)
+                .draw(SilhouetteShadow.tree(image: docTreeSprite(), at: CGPoint(x: 120, y: 156)))
         }
     ]
+}
+
+private func docTreeSprite() -> UIImage {
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = false
+    return UIGraphicsImageRenderer(size: CGSize(width: 44, height: 78), format: format).image { ctx in
+        let context = ctx.cgContext
+        context.setFillColor(UIColor(red: 0.22, green: 0.55, blue: 0.28, alpha: 1).cgColor)
+        context.fillEllipse(in: CGRect(x: 2, y: 4, width: 40, height: 36))
+        context.fill(CGRect(x: 18, y: 30, width: 8, height: 46))
+    }
 }
 
 struct DocStickerGroupCard: View {

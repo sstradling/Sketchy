@@ -174,6 +174,8 @@ SketchGroup {
 
 `shadow` is optional. Nil, or `opacity` `0`, leaves the sheet unchanged. The shadow follows the cutout, including a group outline and holes. It does not follow hatch gaps or crayon flakes. `x`, `y`, and `radius` are points. Give the frame padding or the blur is clipped.
 
+`SilhouetteShadow` is a different shadow. It tints a `UIImage` alpha, applies an affine transform around an anchor, and pins that anchor in the view. `.tree(image:at:)` uses rgb(22, 48, 14) at 42% opacity, skew `-0.58`, and squash `0.32`, with the anchor on the lowest opaque row. It does not use the drawing cache or `Options.seed`.
+
 ### Opacity
 
 `.opacityProfile` multiplies `strokeOpacity` along the outline. `.uniform` changes nothing. `.values` spaces samples evenly, `.stops` places `OpacityStop` values from 0 to 1, and `.noise` wobbles between a minimum and a maximum. The same noise seed repeats. A varying profile is painted into one mask, so overlaps do not turn dark.
