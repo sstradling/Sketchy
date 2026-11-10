@@ -52,9 +52,13 @@ final class ContourFillTests: XCTestCase {
         let fullTop = try! XCTUnwrap(full.strokes.min(by: { meanY($0) < meanY($1) }))
         let flatTop = try! XCTUnwrap(flat.strokes.min(by: { meanY($0) < meanY($1) }))
 
-        XCTAssertGreaterThan(sagitta(fullBottom.points), 12, "uncapped intensity should bow tightly near the center")
-        XCTAssertLessThan(sagitta(flatBottom.points), sagitta(fullBottom.points) * 0.45)
-        XCTAssertGreaterThan(sagitta(flatTop.points), sagitta(fullTop.points) * 0.7)
+        // Intensity 1 follows the horizon's wide bow. The bottom stroke still
+        // crosses the dome. It does not shrink into a ring around the center.
+        XCTAssertGreaterThan(chord(fullBottom.points), 160)
+        XCTAssertGreaterThan(chord(flatBottom.points), 160)
+        XCTAssertLessThan(sagitta(fullBottom.points), sagitta(fullTop.points) * 1.4)
+        XCTAssertLessThan(sagitta(flatBottom.points), sagitta(flatTop.points) * 0.55)
+        XCTAssertGreaterThan(sagitta(flatTop.points), 4)
     }
 
     func testIntensityChangesAlongAStroke() {
@@ -73,6 +77,17 @@ final class ContourFillTests: XCTestCase {
         let leftBow = meanDeviation(left, from: stroke.points)
         let rightBow = meanDeviation(right, from: stroke.points)
         XCTAssertGreaterThan(rightBow, leftBow * 2.5)
+
+        let ordered = plan.strokes.sorted { meanY($0) < meanY($1) }
+        for index in 1..<ordered.count {
+            for x in [Float(80), 200, 320] {
+                let above = y(at: x, on: ordered[index - 1].points)
+                let below = y(at: x, on: ordered[index].points)
+                if let above, let below {
+                    XCTAssertLessThan(above, below + 0.5, "strokes crossed at x=\(x)")
+                }
+            }
+        }
     }
 
     func testEaseCurves() {
@@ -94,8 +109,9 @@ final class ContourFillTests: XCTestCase {
         let second = ContourGeometry.plan(polygon: lower, options: options)
         XCTAssertFalse(first.strokes.isEmpty)
         XCTAssertFalse(second.strokes.isEmpty)
-        for stroke in first.strokes + second.strokes where chord(stroke.points) > 24 {
-            XCTAssertLessThan(radiusSpread(stroke.points, center: center), 1.5)
+        for stroke in first.strokes + second.strokes where chord(stroke.points) > 40 {
+            let radius = estimatedRadius(stroke.points)
+            XCTAssertEqual(radius, 460, accuracy: 140, "bow should match the shared guide, not a tight local arc")
         }
     }
 
@@ -166,14 +182,12 @@ final class ContourFillTests: XCTestCase {
         options.contourFalloff = 1
         options.contourGuide = .arc(center: ContourPoint(x: 100, y: 420), radius: 420)
         let plan = ContourGeometry.plan(polygon: dome, options: options)
-        let guideRadius: Float = 420
-        let near = try! XCTUnwrap(plan.strokes.min {
-            abs($0.offset - guideRadius) < abs($1.offset - guideRadius)
-        })
-        let far = try! XCTUnwrap(plan.strokes.max {
-            abs($0.offset - guideRadius) < abs($1.offset - guideRadius)
-        })
-        XCTAssertLessThan(near.scale, far.scale - 0.2)
+        let ordered = plan.strokes.sorted { meanY($0) < meanY($1) }
+        XCTAssertGreaterThan(ordered.count, 4)
+        let topGap = meanY(ordered[1]) - meanY(ordered[0])
+        let bottomGap = meanY(ordered[ordered.count - 1]) - meanY(ordered[ordered.count - 2])
+        XCTAssertLessThan(topGap, bottomGap * 0.75, "strokes should pack toward the horizon and spread toward the bottom")
+        XCTAssertLessThan(ordered[0].scale, ordered[ordered.count - 1].scale - 0.2)
 
         let sets = ContourFiller().fillPolygonSets(points: dome, options: options)
         let scales = sets.compactMap(\.fillLineScale)
@@ -353,9 +367,26 @@ final class ContourFillTests: XCTestCase {
         return hypot(last.x - first.x, last.y - first.y)
     }
 
-    private func radiusSpread(_ points: [ContourPoint], center: ContourPoint) -> Float {
-        let radii = points.map { hypot($0.x - center.x, $0.y - center.y) }
-        return (radii.max() ?? 0) - (radii.min() ?? 0)
+    private func estimatedRadius(_ points: [ContourPoint]) -> Float {
+        let sag = sagitta(points)
+        let span = chord(points)
+        guard sag > 0.4 else { return .greatestFiniteMagnitude }
+        return span * span / (8 * sag)
+    }
+
+    private func y(at x: Float, on points: [ContourPoint]) -> Float? {
+        guard points.count >= 2 else { return nil }
+        for index in 1..<points.count {
+            let left = points[index - 1]
+            let right = points[index]
+            let span = right.x - left.x
+            guard abs(span) > 0.001 else { continue }
+            let t = (x - left.x) / span
+            if t >= 0, t <= 1 {
+                return left.y + (right.y - left.y) * t
+            }
+        }
+        return nil
     }
 
     private func fitted(x: CGFloat, y: CGFloat, pathBounds: CGRect, size: CGSize) -> CGPoint {

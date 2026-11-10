@@ -4,11 +4,12 @@
 //
 //  Clipped contour strokes before roughness is applied.
 //
-//  A stroke is the guide curve at one offset, clipped to the polygon with the
-//  even-odd rule, then blended toward its chord. Intensity 0 keeps the chord.
-//  Intensity 1 keeps the guide curve. Values above 1 exaggerate the bow.
-//  Graduation evaluates that intensity at each sample from a projection across
-//  the shape, so one stroke can be straight on one side and bowed on the other.
+//  Each stroke is a full-width copy of the guide's bow, clipped to the polygon
+//  with the even-odd rule. Intensity 0 is the straight chord. Intensity 1 keeps
+//  the guide's bow. A lower intensity flattens that same wide bow (a larger
+//  radius). It does not move the stroke onto a tighter concentric circle.
+//  Graduation scales the bow along the stroke or from one stroke to the next.
+//  Level sets stay ordered, so neighboring strokes do not cross.
 //
 
 import Foundation
@@ -53,16 +54,16 @@ enum ContourGeometry {
         for placement in ContourField.placements(count: count, falloff: falloff, phaseSlots: phaseSlots) {
             let offset = scan.range.position(placement.u)
             let scale = widthScale(u: placement.u, falloff: falloff)
-            let minChord = max(6, options.effectiveFillWeight * 1.5) * max(0.35, scale)
+            // Drop caps and corner stubs. A real stroke crosses most of the shape.
+            let minChord = max(8, scan.across * 0.35)
             let pieces = scan.pieces(at: offset, polygon: polygon)
             for piece in pieces {
-                let bowed = bow(piece, field: field)
-                guard chord(bowed) >= minChord else { continue }
+                guard chord(piece) >= minChord else { continue }
                 strokes.append(ContourStroke(
                     slot: placement.slot,
                     offset: offset,
                     scale: scale,
-                    points: bowed
+                    points: piece
                 ))
             }
         }
@@ -130,27 +131,6 @@ private struct IntensityField {
     }
 }
 
-private func bow(_ points: [ContourPoint], field: IntensityField) -> [ContourPoint] {
-    guard points.count >= 2, let first = points.first, let last = points.last else { return [] }
-    if hypot(first.x - last.x, first.y - last.y) < 0.5, points.count > 8 {
-        let mid = points.count / 2
-        return bow(Array(points[0...mid]), field: field) + bow(Array(points[mid...]), field: field)
-    }
-    let count = points.count
-    return points.enumerated().map { index, point in
-        let u = Float(index) / Float(count - 1)
-        let chord = ContourPoint(
-            x: first.x + (last.x - first.x) * u,
-            y: first.y + (last.y - first.y) * u
-        )
-        let k = field.value(at: point)
-        return ContourPoint(
-            x: chord.x + (point.x - chord.x) * k,
-            y: chord.y + (point.y - chord.y) * k
-        )
-    }
-}
-
 private func chord(_ points: [ContourPoint]) -> Float {
     guard let first = points.first, let last = points.last else { return 0 }
     return hypot(last.x - first.x, last.y - first.y)
@@ -204,31 +184,41 @@ private struct ScanRange {
 private struct Scan {
     var travel: ContourPoint
     var range: ScanRange
+    /// Width of the shape across the strokes. Short clips under about a third of this are stubs.
+    var across: Float
     var clip: (Float, [ContourPoint]) -> [[ContourPoint]]
 
     init(
         travel: ContourPoint,
         range: ScanRange,
+        across: Float,
         clip: @escaping (Float, [ContourPoint]) -> [[ContourPoint]]
     ) {
         self.travel = travel
         self.range = range
+        self.across = across
         self.clip = clip
     }
 
     init?(polygon: [ContourPoint], options: Options) {
         switch options.contourGuide {
         case let .arc(center, radius):
-            guard let scan = Scan.arc(center: center, guideRadius: radius, polygon: polygon) else { return nil }
+            guard let scan = Scan.arc(
+                center: center, guideRadius: radius, polygon: polygon, options: options
+            ) else { return nil }
             self = scan
         case let .polyline(points, closed):
             guard points.count >= 2,
-                  let scan = Scan.polyline(points: points, closed: closed, polygon: polygon) else {
+                  let scan = Scan.polyline(
+                    points: points, closed: closed, polygon: polygon, options: options
+                  ) else {
                 return nil
             }
             self = scan
         case nil:
-            guard let scan = Scan.lines(angle: options.fillAngle, polygon: polygon) else { return nil }
+            guard let scan = Scan.lines(angle: options.fillAngle, polygon: polygon, options: options) else {
+                return nil
+            }
             self = scan
         }
     }
@@ -237,194 +227,193 @@ private struct Scan {
         clip(offset, polygon)
     }
 
-    static func arc(center: ContourPoint, guideRadius: Float, polygon: [ContourPoint]) -> Scan? {
+    static func arc(
+        center: ContourPoint,
+        guideRadius: Float,
+        polygon: [ContourPoint],
+        options: Options
+    ) -> Scan? {
+        guard guideRadius > 1 else { return nil }
         let centroid = centroid(of: polygon)
-        var radial = ContourPoint(x: centroid.x - center.x, y: centroid.y - center.y)
-        if hypot(radial.x, radial.y) < 1 {
-            radial = ContourPoint(x: 0, y: 1)
-        } else {
-            radial = normalize(radial)
+        var toward = ContourPoint(x: centroid.x - center.x, y: centroid.y - center.y)
+        toward = normalize(toward)
+        let guidePoint = ContourPoint(
+            x: center.x + toward.x * guideRadius,
+            y: center.y + toward.y * guideRadius
+        )
+        var into = ContourPoint(x: centroid.x - guidePoint.x, y: centroid.y - guidePoint.y)
+        if hypot(into.x, into.y) < 1 {
+            into = ContourPoint(x: -toward.x, y: -toward.y)
         }
-        var low = Float.greatestFiniteMagnitude
-        var high: Float = 0
-        if contains(center, polygon: polygon) {
-            low = 0
+        let travel = normalize(into)
+        let tangent = ContourPoint(x: travel.y, y: -travel.x)
+        let frame = BowFrame(origin: guidePoint, travel: travel, tangent: tangent)
+        let centerU = frame.u(of: center)
+        let centerS = frame.s(of: center)
+        let sigma: Float = centerS >= 0 ? 1 : -1
+        let guideS: (Float) -> Float = { u in
+            arcDepth(u - centerU, radius: guideRadius, centerS: centerS, sigma: sigma)
         }
-        for point in polygon {
-            let distance = hypot(point.x - center.x, point.y - center.y)
-            low = min(low, distance)
-            high = max(high, distance)
-        }
-        let count = polygon.count
-        for index in 0..<count {
-            let distance = distanceToSegment(center, polygon[index], polygon[(index + 1) % count])
-            low = min(low, distance)
-        }
-        guard high - low > 0.5 else { return nil }
-        let guideAtLow = abs(low - guideRadius) <= abs(high - guideRadius)
-        let range = ScanRange(low: low, high: high, guideAtLow: guideAtLow)
-        let travel = normalize(ContourPoint(
-            x: radial.x * (range.position(1) - range.position(0)),
-            y: radial.y * (range.position(1) - range.position(0))
-        ))
-        return Scan(travel: travel, range: range) { offset, polygon in
-            circlePieces(center: center, radius: offset, radial: radial, polygon: polygon)
-        }
+        return makeScan(frame: frame, guideS: guideS, polygon: polygon, options: options)
     }
 
-    static func lines(angle: Float, polygon: [ContourPoint]) -> Scan? {
+    static func lines(angle: Float, polygon: [ContourPoint], options: Options) -> Scan? {
         let radians = angle * Float.pi / 180
         let tangent = ContourPoint(x: cos(radians), y: sin(radians))
-        let axis = ContourPoint(x: -tangent.y, y: tangent.x)
-        let offsets = polygon.map { $0.x * axis.x + $0.y * axis.y }
-        guard let low = offsets.min(), let high = offsets.max(), high - low > 0.5 else { return nil }
-        let range = ScanRange(low: low, high: high, guideAtLow: true)
-        let centroid = centroid(of: polygon)
-        return Scan(travel: axis, range: range) { offset, polygon in
-            let shift = offset - (centroid.x * axis.x + centroid.y * axis.y)
-            let origin = ContourPoint(
-                x: centroid.x + axis.x * shift,
-                y: centroid.y + axis.y * shift
-            )
-            let reach = diagonal(of: polygon) + 8
-            let start = ContourPoint(
-                x: origin.x - tangent.x * reach,
-                y: origin.y - tangent.y * reach
-            )
-            let end = ContourPoint(
-                x: origin.x + tangent.x * reach,
-                y: origin.y + tangent.y * reach
-            )
-            return clipChain([start, end], closed: false, polygon: polygon)
-        }
+        let travel = ContourPoint(x: -tangent.y, y: tangent.x)
+        let frame = BowFrame(origin: centroid(of: polygon), travel: travel, tangent: tangent)
+        return makeScan(frame: frame, guideS: { _ in 0 }, polygon: polygon, options: options)
     }
 
-    static func polyline(points: [ContourPoint], closed: Bool, polygon: [ContourPoint]) -> Scan? {
-        let distances = polygon.map { signedDistance($0, guide: points, closed: closed) }
-        guard let low = distances.min(), let high = distances.max(), high - low > 0.5 else { return nil }
-        let guideAtLow = abs(low) <= abs(high)
-        let range = ScanRange(low: low, high: high, guideAtLow: guideAtLow)
+    static func polyline(
+        points: [ContourPoint],
+        closed: Bool,
+        polygon: [ContourPoint],
+        options: Options
+    ) -> Scan? {
         let centroid = centroid(of: polygon)
-        let (_, normal) = closestFrame(to: centroid, guide: points, closed: closed)
-        let reach = diagonal(of: polygon) + 8
-        return Scan(
-            travel: normalize(ContourPoint(
-                x: normal.x * (range.position(1) - range.position(0)),
-                y: normal.y * (range.position(1) - range.position(0))
-            )),
-            range: range
-        ) { offset, polygon in
-            var chain = offsetCurve(points, distance: offset, closed: closed)
-            if !closed {
-                chain = extend(chain, by: reach)
-            }
-            return clipChain(chain, closed: closed, polygon: polygon)
+        let (anchor, normal) = closestFrame(to: centroid, guide: points, closed: closed)
+        var travel = normal
+        let into = ContourPoint(x: centroid.x - anchor.x, y: centroid.y - anchor.y)
+        if into.x * normal.x + into.y * normal.y < 0 {
+            travel = ContourPoint(x: -normal.x, y: -normal.y)
+        }
+        travel = normalize(travel)
+        let tangent = ContourPoint(x: travel.y, y: -travel.x)
+        let frame = BowFrame(origin: anchor, travel: travel, tangent: tangent)
+        let samples = points.map { (frame.u(of: $0), frame.s(of: $0)) }.sorted { $0.0 < $1.0 }
+        guard samples.count >= 2 else { return nil }
+        let guideS: (Float) -> Float = { u in
+            interpolate(samples, at: u)
+        }
+        return makeScan(frame: frame, guideS: guideS, polygon: polygon, options: options)
+    }
+
+    private static func makeScan(
+        frame: BowFrame,
+        guideS: @escaping (Float) -> Float,
+        polygon: [ContourPoint],
+        options: Options
+    ) -> Scan? {
+        let us = polygon.map { frame.u(of: $0) }
+        let ss = polygon.map { frame.s(of: $0) }
+        guard let uMin = us.min(), let uMax = us.max(), uMax - uMin > 1 else { return nil }
+        guard let sMin = ss.min(), let sMax = ss.max(), sMax - sMin > 0.5 else { return nil }
+        let crest = guideS((uMin + uMax) / 2)
+        let guideAtLow = abs(sMin - crest) <= abs(sMax - crest)
+        let bow = bowDeviation(guideS: guideS, uMin: uMin, uMax: uMax)
+        let field = IntensityField(polygon: polygon, options: options)
+        let range = ScanRange(low: sMin, high: sMax, guideAtLow: guideAtLow)
+        return Scan(travel: frame.travel, range: range, across: uMax - uMin) { offset, polygon in
+            widePieces(
+                s0: offset,
+                frame: frame,
+                uMin: uMin,
+                uMax: uMax,
+                bow: bow,
+                field: field,
+                polygon: polygon
+            )
         }
     }
 }
 
-// MARK: - Circle clip
+// MARK: - Wide bow
 
-private func circlePieces(
-    center: ContourPoint,
-    radius: Float,
-    radial: ContourPoint,
+private struct BowFrame {
+    var origin: ContourPoint
+    var travel: ContourPoint
+    var tangent: ContourPoint
+
+    func u(of point: ContourPoint) -> Float {
+        (point.x - origin.x) * tangent.x + (point.y - origin.y) * tangent.y
+    }
+
+    func s(of point: ContourPoint) -> Float {
+        (point.x - origin.x) * travel.x + (point.y - origin.y) * travel.y
+    }
+
+    func point(u: Float, s: Float) -> ContourPoint {
+        ContourPoint(
+            x: origin.x + tangent.x * u + travel.x * s,
+            y: origin.y + tangent.y * u + travel.y * s
+        )
+    }
+}
+
+/// Depth of a circular guide along `travel`. The crest (`u == 0` in center space) sits at `s == 0`.
+private func arcDepth(_ du: Float, radius: Float, centerS: Float, sigma: Float) -> Float {
+    let limit = radius * 0.995
+    if abs(du) <= limit {
+        return centerS - sigma * sqrt(max(0, radius * radius - du * du))
+    }
+    let edge = limit * (du < 0 ? -1 : 1)
+    let edgeS = centerS - sigma * sqrt(max(0, radius * radius - edge * edge))
+    let slope = sigma * edge / sqrt(max(0.01, radius * radius - edge * edge))
+    return edgeS + slope * (du - edge)
+}
+
+/// Guide depth minus the straight chord across `[uMin, uMax]`. Zero at both ends.
+private func bowDeviation(
+    guideS: @escaping (Float) -> Float,
+    uMin: Float,
+    uMax: Float
+) -> (Float) -> Float {
+    let span = max(uMax - uMin, 0.001)
+    let start = guideS(uMin)
+    let end = guideS(uMax)
+    return { u in
+        let clamped = min(uMax, max(uMin, u))
+        let t = (clamped - uMin) / span
+        return guideS(clamped) - (start + (end - start) * t)
+    }
+}
+
+private func interpolate(_ samples: [(Float, Float)], at u: Float) -> Float {
+    guard let first = samples.first else { return 0 }
+    if u <= first.0 { return first.1 }
+    guard let last = samples.last else { return 0 }
+    if u >= last.0 { return last.1 }
+    for index in 1..<samples.count {
+        let left = samples[index - 1]
+        let right = samples[index]
+        if u <= right.0 {
+            let span = max(right.0 - left.0, 0.001)
+            let t = (u - left.0) / span
+            return left.1 + (right.1 - left.1) * t
+        }
+    }
+    return last.1
+}
+
+/// One full-width bow at scan depth `s0`, clipped to the polygon.
+///
+/// The unbowed line sits at `s0`. Intensity scales the guide's bow and is read
+/// on that line, so a horizontal ramp is the same shape on every stroke and a
+/// vertical ramp only changes from one stroke to the next. Either way the
+/// curves stay in order.
+private func widePieces(
+    s0: Float,
+    frame: BowFrame,
+    uMin: Float,
+    uMax: Float,
+    bow: (Float) -> Float,
+    field: IntensityField,
     polygon: [ContourPoint]
 ) -> [[ContourPoint]] {
-    guard radius > 0.5 else { return [] }
-    var hits: [(angle: Float, point: ContourPoint)] = []
-    let count = polygon.count
-    for index in 0..<count {
-        let start = polygon[index]
-        let end = polygon[(index + 1) % count]
-        for hit in circleSegmentHits(center: center, radius: radius, a: start, b: end) {
-            hits.append((atan2(hit.y - center.y, hit.x - center.x), hit))
-        }
+    let span = max(uMax - uMin, 1)
+    let steps = min(48, max(16, Int(span / 10)))
+    let pad = span * 0.08 + 4
+    var chain: [ContourPoint] = []
+    chain.reserveCapacity(steps + 1)
+    for step in 0...steps {
+        let u = (uMin - pad) + (span + pad * 2) * Float(step) / Float(steps)
+        let clamped = min(uMax, max(uMin, u))
+        let k = field.value(at: frame.point(u: clamped, s: s0))
+        let depth = s0 + k * bow(clamped)
+        chain.append(frame.point(u: u, s: depth))
     }
-    hits = dedupCircular(hits)
-    if hits.isEmpty {
-        let probe = ContourPoint(x: center.x + radius, y: center.y)
-        guard contains(probe, polygon: polygon) else { return [] }
-        let base = atan2(radial.y, radial.x)
-        return [
-            sampleArc(center: center, radius: radius, from: base, to: base + .pi),
-            sampleArc(center: center, radius: radius, from: base + .pi, to: base + 2 * .pi)
-        ]
-    }
-    guard hits.count >= 2 else { return [] }
-
-    var pieces: [[ContourPoint]] = []
-    for index in 0..<hits.count {
-        let start = hits[index].angle
-        var stop = hits[(index + 1) % hits.count].angle
-        if index == hits.count - 1 || stop < start {
-            stop += 2 * .pi
-        }
-        let mid = (start + stop) / 2
-        let probe = ContourPoint(
-            x: center.x + radius * cos(mid),
-            y: center.y + radius * sin(mid)
-        )
-        guard contains(probe, polygon: polygon) else { continue }
-        pieces.append(sampleArc(center: center, radius: radius, from: start, to: stop))
-    }
-    return pieces
-}
-
-private func sampleArc(center: ContourPoint, radius: Float, from start: Float, to stop: Float) -> [ContourPoint] {
-    let sweep = max(0, stop - start)
-    let steps = min(36, max(8, Int(sweep / (Float.pi / 28))))
-    return (0...steps).map { step in
-        let angle = start + sweep * Float(step) / Float(steps)
-        return ContourPoint(
-            x: center.x + radius * cos(angle),
-            y: center.y + radius * sin(angle)
-        )
-    }
-}
-
-private func circleSegmentHits(
-    center: ContourPoint,
-    radius: Float,
-    a: ContourPoint,
-    b: ContourPoint
-) -> [ContourPoint] {
-    let dx = b.x - a.x
-    let dy = b.y - a.y
-    let fx = a.x - center.x
-    let fy = a.y - center.y
-    let aCoef = dx * dx + dy * dy
-    guard aCoef > 1e-8 else { return [] }
-    let bCoef = 2 * (fx * dx + fy * dy)
-    let cCoef = fx * fx + fy * fy - radius * radius
-    let discriminant = bCoef * bCoef - 4 * aCoef * cCoef
-    guard discriminant >= 0 else { return [] }
-    let root = sqrt(discriminant)
-    var hits: [ContourPoint] = []
-    for sign in [-1 as Float, 1] {
-        let t = (-bCoef + sign * root) / (2 * aCoef)
-        guard t >= -1e-4, t <= 1 + 1e-4 else { continue }
-        let clamped = min(1, max(0, t))
-        hits.append(ContourPoint(x: a.x + dx * clamped, y: a.y + dy * clamped))
-    }
-    return hits
-}
-
-private func dedupCircular(_ hits: [(angle: Float, point: ContourPoint)]) -> [(angle: Float, point: ContourPoint)] {
-    var sorted = hits.sorted { $0.angle < $1.angle }
-    var kept: [(angle: Float, point: ContourPoint)] = []
-    for hit in sorted {
-        if let last = kept.last, hypot(hit.point.x - last.point.x, hit.point.y - last.point.y) < 0.75 {
-            continue
-        }
-        kept.append(hit)
-    }
-    if kept.count >= 2,
-       hypot(kept[0].point.x - kept[kept.count - 1].point.x, kept[0].point.y - kept[kept.count - 1].point.y) < 0.75 {
-        kept.removeLast()
-    }
-    sorted = kept
-    return sorted
+    return clipChain(chain, closed: false, polygon: polygon)
 }
 
 // MARK: - Chain clip
@@ -526,68 +515,6 @@ private func segmentHit(_ a: ContourPoint, _ b: ContourPoint, _ c: ContourPoint,
 
 // MARK: - Guides
 
-private func offsetCurve(_ points: [ContourPoint], distance: Float, closed: Bool) -> [ContourPoint] {
-    let count = points.count
-    return points.enumerated().map { index, point in
-        let normal = vertexNormal(points, index: index, closed: closed)
-        return ContourPoint(x: point.x + normal.x * distance, y: point.y + normal.y * distance)
-    }
-}
-
-private func vertexNormal(_ points: [ContourPoint], index: Int, closed: Bool) -> ContourPoint {
-    let count = points.count
-    let previous: ContourPoint
-    let next: ContourPoint
-    if !closed && index == 0 {
-        previous = points[0]
-        next = points[1]
-    } else if !closed && index == count - 1 {
-        previous = points[count - 2]
-        next = points[count - 1]
-    } else {
-        previous = points[(index - 1 + count) % count]
-        next = points[(index + 1) % count]
-    }
-    let dx = next.x - previous.x
-    let dy = next.y - previous.y
-    let length = hypot(dx, dy)
-    guard length > 1e-4 else { return ContourPoint(x: 0, y: 0) }
-    return ContourPoint(x: -dy / length, y: dx / length)
-}
-
-private func extend(_ points: [ContourPoint], by extra: Float) -> [ContourPoint] {
-    guard points.count >= 2 else { return points }
-    var copy = points
-    let start = points[0]
-    let after = points[1]
-    let startLength = hypot(start.x - after.x, start.y - after.y)
-    if startLength > 1e-4 {
-        copy[0] = ContourPoint(
-            x: start.x + (start.x - after.x) / startLength * extra,
-            y: start.y + (start.y - after.y) / startLength * extra
-        )
-    }
-    let last = points.count - 1
-    let end = points[last]
-    let before = points[last - 1]
-    let endLength = hypot(end.x - before.x, end.y - before.y)
-    if endLength > 1e-4 {
-        copy[last] = ContourPoint(
-            x: end.x + (end.x - before.x) / endLength * extra,
-            y: end.y + (end.y - before.y) / endLength * extra
-        )
-    }
-    return copy
-}
-
-private func signedDistance(_ point: ContourPoint, guide: [ContourPoint], closed: Bool) -> Float {
-    let (anchor, normal) = closestFrame(to: point, guide: guide, closed: closed)
-    let dx = point.x - anchor.x
-    let dy = point.y - anchor.y
-    let sign: Float = dx * normal.x + dy * normal.y >= 0 ? 1 : -1
-    return sign * hypot(dx, dy)
-}
-
 private func closestFrame(
     to point: ContourPoint,
     guide: [ContourPoint],
@@ -650,29 +577,6 @@ private func centroid(of polygon: [ContourPoint]) -> ContourPoint {
     }
     let count = Float(polygon.count)
     return ContourPoint(x: x / count, y: y / count)
-}
-
-private func diagonal(of polygon: [ContourPoint]) -> Float {
-    var minX = Float.greatestFiniteMagnitude
-    var minY = Float.greatestFiniteMagnitude
-    var maxX = -Float.greatestFiniteMagnitude
-    var maxY = -Float.greatestFiniteMagnitude
-    for point in polygon {
-        minX = min(minX, point.x)
-        minY = min(minY, point.y)
-        maxX = max(maxX, point.x)
-        maxY = max(maxY, point.y)
-    }
-    return hypot(maxX - minX, maxY - minY)
-}
-
-private func distanceToSegment(_ point: ContourPoint, _ a: ContourPoint, _ b: ContourPoint) -> Float {
-    let dx = b.x - a.x
-    let dy = b.y - a.y
-    let lengthSquared = dx * dx + dy * dy
-    guard lengthSquared > 1e-6 else { return hypot(point.x - a.x, point.y - a.y) }
-    let t = min(1, max(0, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared))
-    return hypot(point.x - (a.x + dx * t), point.y - (a.y + dy * t))
 }
 
 private func normalize(_ point: ContourPoint) -> ContourPoint {

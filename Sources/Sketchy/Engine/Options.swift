@@ -117,9 +117,10 @@ public struct Options: Equatable, Hashable {
 
     /// How strongly a contour stroke follows the guide.
     ///
-    /// `0` is the straight chord. `1` follows the guide curve. Values above `1`
-    /// exaggerate the bow. Ignored when `contourIntensityStart` and
-    /// `contourIntensityEnd` are both set.
+    /// `0` is a straight chord across the shape. `1` uses the guide's bow at
+    /// that same full width. Lower values flatten the bow (a larger radius).
+    /// They do not shrink the stroke onto a tighter circle. Values above `1`
+    /// exaggerate the bow. Ignored when both start and end intensities are set.
     public var contourIntensity: Float = 1
 
     /// Curvature at the low end of `contourGradientAngle`. `nil` uses `contourIntensity`.

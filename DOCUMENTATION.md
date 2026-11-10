@@ -663,8 +663,10 @@ RoughView()
 ### Contour fill
 
 `.contour` draws the same rough centerlines as hachure, then bends each one
-along a guide. `0` intensity is the straight chord of that guide. `1` follows
-the guide curve. Above `1` exaggerates the bow. A single `.contourIntensity`
+along a guide. Every stroke spans the shape. `0` intensity is the straight
+chord. `1` uses the guide's bow. A lower intensity flattens that bow, which
+is a larger radius, not a smaller concentric arc. Above `1` exaggerates the
+bow. A single `.contourIntensity`
 uses that value everywhere. `.contourIntensity(from:to:angle:easing:)` ramps
 it across the shape. `angle` `0` runs left to right and `90` runs top to
 bottom. The ramp is sampled along each stroke, so the bow can change from one
