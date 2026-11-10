@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `.interiorShades` paints inside a closed shape, or a soft band just outside it. `.pitShadow` is a 60% black inner shadow offset 9 points down with blur 4, clipped to the interior. `.pitRecess` is the vertical black gradient used on the small pits. `.edgeShade()` darkens the rim. `.halo(color:)` is the hit ring. The generator ignores the list, so the drawing cache and `Options.seed` are unchanged. Holes stay empty. `StickerShadow` is still the outer drop shadow of the paper.
+
 ## [1.5.0] - 2026-11-09
 
 - The sticker docs now cover the full set of options: width and smoothness, `.smooth` versus `.fullySmooth()` versus `.torn()`, backing color and paper grain, image masking, `SketchGroup` with `SketchPart` transforms, and `StickerShadow`. README, `DOCUMENTATION.md`, `llms.txt`, the demo, and the generated gallery in `docs/Examples.md` agree.

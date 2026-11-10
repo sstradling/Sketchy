@@ -81,6 +81,13 @@ public struct Options: Equatable, Hashable {
     /// and the sketch is unchanged. See `StickerBacking`.
     public var stickerBacking: StickerBacking? = nil
 
+    /// Shades clipped to this shape, and halos just outside it.
+    ///
+    /// Empty draws nothing. The generator ignores the list, so it does not
+    /// consume `seed` and it is not part of the drawing cache key. `cacheHash`
+    /// includes it because the painted pixels change.
+    public var interiorShades: [InteriorShade] = []
+
     /// Seed for roughness, bowing, and fill wobble.
     ///
     /// `nil` (the default) keeps the system random generator, so an uncached
@@ -263,6 +270,7 @@ public struct Options: Equatable, Hashable {
         hasher.combine(fillOffset.width)
         hasher.combine(fillOffset.height)
         hasher.combine(stickerBacking)
+        hasher.combine(interiorShades)
         hasher.combine(fillSpacing)
         hasher.combine(fillSpacingPattern)
         hasher.combine(dashOffset)

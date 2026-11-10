@@ -67,6 +67,11 @@ public struct RoughRenderCommand {
     /// margin stays out of a hole. A sheet shadow does not include this image.
     public let stickerImage: StickerImage?
 
+    /// Interior shade painted instead of `style` when set.
+    ///
+    /// The path is the input silhouette. Animation does not vary it.
+    var shade: InteriorShade?
+
     /// Set on the solid sheet commands that share one drop shadow.
     ///
     /// Texture and image commands leave this nil, so grain and the masked
@@ -94,7 +99,8 @@ public struct RoughRenderCommand {
         opacityMaskGroup: Int? = nil,
         maskOpacity: CGFloat = 1,
         opacityMaskBlur: CGFloat = 0,
-        stickerImage: StickerImage? = nil
+        stickerImage: StickerImage? = nil,
+        shade: InteriorShade? = nil
     ) {
         self.init(
             path: path,
@@ -109,7 +115,8 @@ public struct RoughRenderCommand {
             maskOpacity: maskOpacity,
             opacityMaskBlur: opacityMaskBlur,
             sheetShadow: nil,
-            stickerImage: stickerImage
+            stickerImage: stickerImage,
+            shade: shade
         )
     }
 
@@ -126,7 +133,8 @@ public struct RoughRenderCommand {
         maskOpacity: CGFloat,
         opacityMaskBlur: CGFloat,
         sheetShadow: SheetShadow?,
-        stickerImage: StickerImage?
+        stickerImage: StickerImage?,
+        shade: InteriorShade? = nil
     ) {
         self.path = path
         self.style = style
@@ -141,6 +149,7 @@ public struct RoughRenderCommand {
         self.opacityMaskBlur = opacityMaskBlur
         self.sheetShadow = sheetShadow
         self.stickerImage = stickerImage
+        self.shade = shade
     }
 
     func withSheetShadow(_ shadow: SheetShadow) -> RoughRenderCommand {
@@ -157,7 +166,8 @@ public struct RoughRenderCommand {
             maskOpacity: maskOpacity,
             opacityMaskBlur: opacityMaskBlur,
             sheetShadow: shadow,
-            stickerImage: stickerImage
+            stickerImage: stickerImage,
+            shade: shade
         )
     }
 
@@ -176,7 +186,8 @@ public struct RoughRenderCommand {
             maskOpacity: maskOpacity,
             opacityMaskBlur: opacityMaskBlur,
             sheetShadow: sheetShadow,
-            stickerImage: stickerImage
+            stickerImage: stickerImage,
+            shade: shade
         )
     }
 }
@@ -327,9 +338,26 @@ public struct SwiftUIRenderer {
                 ))
             }
 
+            let shadeCommands: (beforeStroke: [RoughRenderCommand], afterStroke: [RoughRenderCommand])
+            if let shadePath = InteriorShadePainter.path(
+                guides: drawing.stickerGuide,
+                shape: drawing.shape,
+                transform: svgTransform
+            ) {
+                shadeCommands = InteriorShadePainter.commands(path: shadePath, shades: options.interiorShades)
+            } else {
+                shadeCommands = ([], [])
+            }
+            var paintedInteriorShade = shadeCommands.beforeStroke.isEmpty
+
             // Process standard operation sets. Outline sets are skipped when a
             // wash or a variable-opacity ribbon already painted them.
+            // Interior shades go after the fill sets and before the outline.
             for set in drawing.sets {
+                if !paintedInteriorShade && set.type == .path {
+                    result.append(contentsOf: shadeCommands.beforeStroke)
+                    paintedInteriorShade = true
+                }
                 result.append(contentsOf: commands(
                     for: set,
                     options: options,
@@ -341,6 +369,10 @@ public struct SwiftUIRenderer {
                     nextGroup: &nextGroup
                 ))
             }
+            if !paintedInteriorShade {
+                result.append(contentsOf: shadeCommands.beforeStroke)
+            }
+            result.append(contentsOf: shadeCommands.afterStroke)
             
             if let placement, !isSVGPath {
                 return result.map { $0.applying(placement) }
@@ -516,6 +548,10 @@ public struct SwiftUIRenderer {
     }
     
     private func renderCommand(_ command: RoughRenderCommand, in context: inout GraphicsContext) {
+        if let shade = command.shade {
+            InteriorShadePainter.draw(shade, in: command.path, context: &context)
+            return
+        }
         switch command.style {
         case let .stroke(color, lineWidth):
             UniformStrokePaint.draw(
