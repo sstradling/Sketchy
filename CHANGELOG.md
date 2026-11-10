@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `SilhouetteShadow` tints a `UIImage` (or a `CGImage` mask) and draws it with an affine transform around an anchor. `.tree(image:at:)` is the glider ground shadow: rgb(22, 48, 14) at 42% opacity, skew `-0.58`, squash `0.32`, pinned on the middle of the lowest opaque row. It is painted directly, so it does not use `Options.seed` or the drawing cache. `StickerShadow` is still the outer drop shadow of a paper sheet.
+
 ## [1.5.0] - 2026-11-09
 
 - The sticker docs now cover the full set of options: width and smoothness, `.smooth` versus `.fullySmooth()` versus `.torn()`, backing color and paper grain, image masking, `SketchGroup` with `SketchPart` transforms, and `StickerShadow`. README, `DOCUMENTATION.md`, `llms.txt`, the demo, and the generated gallery in `docs/Examples.md` agree.

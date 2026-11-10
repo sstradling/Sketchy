@@ -50,6 +50,10 @@ public struct RoughView: View {
                     let generator = Engine.shared.generator(size: renderSize)
 
                     for drawable in drawables {
+                        if let shadow = drawable as? SilhouetteShadow {
+                            SilhouetteShadowPainter.draw(shadow, in: &context)
+                            continue
+                        }
                         // Check if we have a spacing pattern for gradient effects
                         if let pattern = options.fillSpacingPattern, !pattern.isEmpty {
                             // Render multiple passes with different spacing for gradient effect

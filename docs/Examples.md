@@ -1249,6 +1249,18 @@ RoughView()
     .draw(EggShape(x: 92, y: 84, width: 64, height: 86, tilt: 0.2))
 ```
 
+### Tree shadow
+
+SilhouetteShadow.tree tints the sprite alpha rgb(22, 48, 14) at 42%, skews it -0.58, squashes it to 0.32, and pins the lowest opaque row.
+
+![Tree shadow](images/stickers/tree-shadow.png)
+
+```swift
+RoughView()
+    .seed(19)
+    .draw(SilhouetteShadow.tree(image: sprite, at: CGPoint(x: 120, y: 156)))
+```
+
 ## Seeding
 
 The same seed redraws the same strokes. A different seed is a different drawing of the same shape.
