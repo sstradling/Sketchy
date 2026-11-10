@@ -72,6 +72,15 @@ public enum RoughRandom {
         return $box.withValue(created, operation: body)
     }
 
+    /// Runs `body` on a fresh sequence, then restores whatever sequence was active.
+    ///
+    /// Contour strokes use this so each slot keeps its own wobble. The outer
+    /// drawing sequence, including the outline, does not advance.
+    public static func isolated<T>(seed: UInt64, _ body: () -> T) -> T {
+        let created = RoughRandomBox(seed: seed)
+        return $box.withValue(created, operation: body)
+    }
+
     /// Uniform value in `0...1`, matching `Float.random(in: 0...1)`.
     public static func unit() -> Float {
         guard var active = box else {

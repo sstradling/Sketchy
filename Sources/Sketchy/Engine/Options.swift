@@ -81,6 +81,13 @@ public struct Options: Equatable, Hashable {
     /// and the sketch is unchanged. See `StickerBacking`.
     public var stickerBacking: StickerBacking? = nil
 
+    /// Shades clipped to this shape, and halos just outside it.
+    ///
+    /// Empty draws nothing. The generator ignores the list, so it does not
+    /// consume `seed` and it is not part of the drawing cache key. `cacheHash`
+    /// includes it because the painted pixels change.
+    public var interiorShades: [InteriorShade] = []
+
     /// Seed for roughness, bowing, and fill wobble.
     ///
     /// `nil` (the default) keeps the system random generator, so an uncached
@@ -108,6 +115,54 @@ public struct Options: Equatable, Hashable {
     public var dashOffset: Float = -1
     public var dashGap: Float = -1
     public var zigzagOffset: Float = -1
+
+    /// Guide curve for `.contour`. `nil` draws straight strokes at `fillAngle`.
+    ///
+    /// The guide is in the same coordinates as the shape. It is not moved by
+    /// `fillPadding` or `fillOffset`; those only change the clipped region.
+    public var contourGuide: ContourGuide? = nil
+
+    /// How strongly a contour stroke follows the guide.
+    ///
+    /// `0` is a straight chord across the shape. `1` uses the guide's bow at
+    /// that same full width. Lower values flatten the bow (a larger radius).
+    /// They do not shrink the stroke onto a tighter circle. Values above `1`
+    /// exaggerate the bow. Ignored when both start and end intensities are set.
+    public var contourIntensity: Float = 1
+
+    /// Curvature at the low end of `contourGradientAngle`. `nil` uses `contourIntensity`.
+    public var contourIntensityStart: Float? = nil
+
+    /// Curvature at the high end of `contourGradientAngle`. `nil` uses `contourIntensity`.
+    public var contourIntensityEnd: Float? = nil
+
+    /// Direction the contour intensity ramps, in degrees.
+    ///
+    /// `0` runs left to right and `90` runs top to bottom, because y points down.
+    /// Start intensity is at the minimum projection and end intensity at the maximum.
+    public var contourGradientAngle: Float = 90
+
+    /// Easing of `contourIntensityStart` toward `contourIntensityEnd`.
+    public var contourEasing: ContourEasing = .linear
+
+    /// How much contour spacing and stroke width shrink toward the guide.
+    ///
+    /// `0` is uniform. `1` packs and thins strokes on the guide side, down to
+    /// about 22% of the far-side spacing and width. Clamped to `0...1`.
+    public var contourFalloff: Float = 0
+
+    /// Optional scroll of the contour field. `nil` leaves the field still.
+    ///
+    /// A non-zero `speed` is the live animation. A pinned `phase` with `speed`
+    /// `0` is a still frame and stays in the drawing cache.
+    public var contourDrift: ContourDrift? = nil
+
+    /// Crayon-wash bands. `.wash` uses `WashPass.sky` when this is nil.
+    ///
+    /// On a `.contour` fill, a non-nil value strokes each contour centerline
+    /// with this recipe (trim, sine bow, roughness, and per-pass width) instead
+    /// of the plain contour stroke.
+    public var washPasses: [WashPass]? = nil
 
     /// Selects between sampled-point (legacy) and continuous-Bezier stroke
     /// generation for native curved shapes (circle, ellipse, arc, egg,
@@ -263,11 +318,21 @@ public struct Options: Equatable, Hashable {
         hasher.combine(fillOffset.width)
         hasher.combine(fillOffset.height)
         hasher.combine(stickerBacking)
+        hasher.combine(interiorShades)
         hasher.combine(fillSpacing)
         hasher.combine(fillSpacingPattern)
         hasher.combine(dashOffset)
         hasher.combine(dashGap)
         hasher.combine(zigzagOffset)
+        hasher.combine(contourGuide)
+        hasher.combine(contourIntensity)
+        hasher.combine(contourIntensityStart)
+        hasher.combine(contourIntensityEnd)
+        hasher.combine(contourGradientAngle)
+        hasher.combine(contourEasing)
+        hasher.combine(contourFalloff)
+        hasher.combine(contourDrift)
+        hasher.combine(washPasses)
         hasher.combine(scribbleOrigin)
         hasher.combine(scribbleTightness)
         hasher.combine(scribbleCurvature)

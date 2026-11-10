@@ -12,14 +12,15 @@ The sample app is `Example/SketchyDemo`. Open `SketchyDemoApp.xcodeproj` and run
 4. [Drawable Types](#drawable-types)
 5. [Options Reference](#options-reference)
 6. [Fill Styles](#fill-styles)
-7. [Text Rendering](#text-rendering)
-8. [Brush Profiles](#brush-profiles)
-9. [Sticker Backing](#sticker-backing)
-10. [Animation](#animation)
-11. [Stroke Continuity](#stroke-continuity)
-12. [Engine & Caching](#engine--caching)
-13. [Common Patterns](#common-patterns)
-14. [Troubleshooting](#troubleshooting)
+7. [Interior Shades](#interior-shades)
+8. [Text Rendering](#text-rendering)
+9. [Brush Profiles](#brush-profiles)
+10. [Sticker Backing](#sticker-backing)
+11. [Animation](#animation)
+12. [Stroke Continuity](#stroke-continuity)
+13. [Engine & Caching](#engine--caching)
+14. [Common Patterns](#common-patterns)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -161,6 +162,14 @@ Pass any `Drawable` type for precise positioning.
 | `.fillSpacingPattern(_ pattern:)` | `[Float]` | Variable spacing for gradients |
 | `.fillPadding(_ value:)` | `CGFloat` | Inset of the fill from the outline. Default `0`. Negative grows the fill |
 | `.fillOffset(_ value:)` | `CGSize` | Shifts the fill. Default `.zero`. Also `.fillOffset(x:y:)` |
+| `.interiorShades(_ shades:)` | `[InteriorShade]` | Replaces shades clipped inside the shape, and halos outside it |
+| `.interiorShade(_ shade:)` | `InteriorShade` | Appends one shade |
+| `.contourGuide(_:)` | `ContourGuide` | Arc or polyline the `.contour` strokes follow |
+| `.contourIntensity(_:)` | `Float` | `0` straight, `1` follows the guide, above `1` exaggerates |
+| `.contourIntensity(from:to:angle:easing:)` | start, end, degrees, `ContourEasing` | Curvature ramp. `90` runs top to bottom |
+| `.contourFalloff(_:)` | `Float` `0...1` | Shrinks spacing and width toward the guide |
+| `.contourDrift(angle:speed:phase:)` | degrees, points/second, points | Pins the scrolling field. `speed` `0` stays cached |
+| `.animatedContour(angle:speed:)` | degrees, points/second | Plays the drift. Returns `ContourDriftView` |
 
 ### Curve Modifiers
 
@@ -558,6 +567,16 @@ public struct Options: Equatable, Hashable {
     public var dashOffset: Float = -1
     public var dashGap: Float = -1
     public var zigzagOffset: Float = -1
+
+    // Contour fill. Ignored by other fill styles.
+    public var contourGuide: ContourGuide? = nil
+    public var contourIntensity: Float = 1          // 0 straight, 1 follows the guide
+    public var contourIntensityStart: Float? = nil  // nil uses contourIntensity
+    public var contourIntensityEnd: Float? = nil
+    public var contourGradientAngle: Float = 90     // ramp direction, y down
+    public var contourEasing: ContourEasing = .linear
+    public var contourFalloff: Float = 0            // 0 uniform, 1 strongest
+    public var contourDrift: ContourDrift? = nil
     
     // Scribble
     public var scribbleOrigin: Float = 0
@@ -604,6 +623,8 @@ public enum FillStyle: String {
     case zigzagLine     // Single zigzag line
     case scribble       // Continuous zig-zag traversal
     case watercolor     // Clipped wash with a darker rim
+    case contour        // Curved strokes that follow a guide
+    case wash           // Separate crayon strokes with trim and a sine bow
 }
 ```
 
@@ -628,11 +649,117 @@ RoughView().fill(.orange).fillStyle(.scribble).scribbleOrigin(85).scribbleTightn
 
 // Watercolor wash, inset from the outline
 RoughView().fill(.blue).fillStyle(.watercolor).fillPadding(12).circle()
+
+// Contour: strokes follow an arc, flatter toward the bottom
+RoughView()
+    .fill(.green)
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 120, y: 360), radius: 280))
+    .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+    .contourFalloff(0.6)
+    .fillWeight(3)
+    .fillSpacing(2.5)
+    .brushProfile(.crayon)
+    .seed(19)
+    .circle()
 ```
+
+### Contour fill
+
+`.contour` draws the same rough centerlines as hachure, then bends each one
+along a guide. Every stroke spans the shape. `0` intensity is the straight
+chord. `1` uses the guide's bow. A lower intensity flattens that bow, which
+is a larger radius, not a smaller concentric arc. Above `1` exaggerates the
+bow. A single `.contourIntensity`
+uses that value everywhere. `.contourIntensity(from:to:angle:easing:)` ramps
+it across the shape. `angle` `0` runs left to right and `90` runs top to
+bottom. The ramp is sampled along each stroke, so the bow can change from one
+side of a line to the other.
+
+`ContourGuide.arc` takes a center and radius in the shape's coordinates.
+`ContourGuide.polyline` or `ContourGuide.path` uses an open or closed curve.
+The same guide can fill a ground shape and a lake: the strokes follow the
+ground, and the lake path clips them. With no guide, strokes stay straight at
+`fillAngle`.
+
+On an arc, intensity `1` all the way to a nearby center tightens into rings.
+Drop the intensity on that side of the gradient. The Glider grass uses a value
+near `1` at the horizon and near `0.45` at the bottom.
+
+`.contourFalloff` from `0` to `1` packs strokes toward the guide and thins
+them, down to about 22% of the far-side gap and width. Width is grouped into
+10% bands so each band is one crayon pass. `fillSpacing` and `fillWeight`
+still set the nominal gap and width. `fillPadding` and `fillOffset` change
+the clipped shape and do not move the guide.
+
+SVG paths clip with the even-odd rule, so a hole stays empty. Polygon strokes
+are clipped the same way, including a notch. Ellipse and rounded-rectangle
+fills are clipped to a polygon of the outline.
+
+`.contourDrift(angle:speed:phase:)` slides the field along `angle` by `phase`
+points. `speed` is points per second and is stored for the player.
+`.animatedContour(angle:speed:)` advances the phase from when the view
+appears. The motion uses only the component along the guide's offset
+direction, so an angle parallel to the strokes does not scroll them. The
+field wraps. Each slot keeps its roughness seed, and the outline is not
+re-rolled. A moving view skips the drawing cache. A pinned phase (`speed` `0`)
+stays cached. Set `seed` or the wobble is new on every uncached build.
+
+### Sky wash
+
+`.fillStyle(.wash)` draws separate strokes instead of one chord across the shape.
+Each stroke scatters around `fillAngle`, trims its ends, and adds a sine bow, then
+uses the same rough centerline as the other fills. `WashPass.sky` is the two-pass
+SlapDuck sky (widths about 42–58 and 28–42 points, trims 28 and 48). `scaled(by:)`
+shrinks those lengths for a smaller view. `nil` passes on a wash fill use that sky preset.
+
+```swift
+RoughView()
+    .fill(Color(red: 0.45, green: 0.62, blue: 0.98))
+    .fillStyle(.wash)
+    .fillAngle(-20)
+    .washPasses(WashPass.sky(scale: 0.4))
+    .brushProfile(.crayon)
+    .seed(19)
+    .rectangle()
+```
+
+A `.contour` fill uses the same recipe when `washPasses` is set. Each contour
+centerline is trimmed, given the sine bow, and drawn at the pass width.
 
 Scribble fills are clipped for potentially concave outlines: SVG paths
 and native `Polygon` drawables. This prevents the continuous zig-zag line
 from leaking across concave notches between ray intersections.
+
+---
+
+## Interior Shades
+
+`StickerShadow` drops a shadow of the paper behind the sheet. `InteriorShade` paints inside the shape, or a thin glow just outside the outline. The generator does not read the list, so the sketch and the drawing cache stay the same. `Options.cacheHash` includes the list because the pixels change. Nothing here uses `Options.seed`.
+
+Clipped shades are drawn after the fill and before the stroke. A halo is drawn after the stroke. An open contour (a line, a curve, an open arc) is skipped. The clip is even-odd, so a hole in an SVG path stays empty.
+
+```swift
+RoughView()
+    .fill(Color(red: 0.76, green: 0.32, blue: 0.28))
+    .fillStyle(.solid)
+    .stroke(Color.white)
+    .strokeWidth(5)
+    .interiorShades([.pitShadow, .pitRecess])
+    .circle()
+```
+
+| API | What it draws |
+| --- | --- |
+| `.innerShadow(opacity:x:y:blur:color:)` | Shadow of the exterior, clipped to the interior. Default opacity `0.6`, offset `(0, 9)`, blur `4`, black. Positive `y` darkens the top. |
+| `.pitShadow` | That default. The maze pit. |
+| `.linear(_:angle:)` | Gradient across the shape bounds. `0` is left to right. `90` is top to bottom. |
+| `.pitRecess` | Black from 62% at the top, through 40%, to 22% at the bottom. The small red pits. |
+| `.radial(_:center:startRadius:endRadius:)` | Radial gradient. Radii are fractions of half the smaller side. `center` defaults to `.center`. |
+| `.edgeShade(color:opacity:inner:)` | Clear until `inner` (default `0.62`), then the colour at the rim. Default colour is red at `0.55`. |
+| `.halo(color:opacity:glow:width:blur:)` | Band of `width` points outside the outline (default `3.5`), then a blur (default `2`). Band opacity `0.55`, glow opacity `0.3`. The hit ring. |
+
+`opacity` `0` on an inner shadow draws nothing. An empty stop list draws nothing. Pass `Color` or `UIColor` where both overloads exist, for example `Color.black`.
 
 ---
 
@@ -1346,6 +1473,26 @@ AnimatedRoughView(
 .frame(width: 150, height: 100)
 ```
 
+### Contour drift
+
+`.animated()` varies a finished drawing. `.animatedContour(angle:speed:)` is
+separate: it scrolls a `.contour` fill at `speed` points per second along
+`angle`. The strokes stay clipped, including even-odd holes, and wrap as a
+stable seeded field. Pin one frame with `.contourDrift(angle:speed:phase:)`
+and `speed` `0`.
+
+```swift
+RoughView()
+    .fill(.green)
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 80, y: 220), radius: 180))
+    .contourIntensity(from: 1, to: 0.4, angle: 90)
+    .seed(19)
+    .rectangle()
+    .animatedContour(angle: 90, speed: 24)
+    .frame(width: 160, height: 120)
+```
+
 ---
 
 ## Stroke Continuity
@@ -1596,6 +1743,10 @@ RoughView()
 ---
 
 ## Troubleshooting
+
+### Issue: Inner shadow covers the background
+
+The shadow is clipped to the shape. A pixel outside the outline is unchanged. A hole in an SVG path stays empty. `StickerShadow` is the one that paints behind the paper and can extend past the sheet.
 
 ### Issue: Shape Not Visible
 

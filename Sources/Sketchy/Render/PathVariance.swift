@@ -576,6 +576,9 @@ extension RoughRenderCommand {
     ///   - step: The current animation step.
     /// - Returns: A new command with variance applied.
     func withVariance(generator: PathVarianceGenerator, step: Int) -> RoughRenderCommand {
+        if shade != nil {
+            return self
+        }
         let variedPath = path.withVariance(generator: generator, step: step)
         let variedClipPath = clipPath?.withVariance(generator: generator, step: step)
         
@@ -607,6 +610,9 @@ extension RoughRenderCommand {
         let extractedPath = ExtractedPath(from: path)
         let extractedClipPath = clipPath.map { ExtractedPath(from: $0) }
         
+        if shade != nil {
+            return Array(repeating: self, count: generator.stepCount)
+        }
         return (0..<generator.stepCount).map { step in
             let variedPath = extractedPath.buildPath(generator: generator, step: step)
             let variedClipPath = extractedClipPath?.buildPath(generator: generator, step: step)
@@ -671,6 +677,12 @@ struct PrecomputedCommandVariance {
 
     /// Image masked by the varied path. Pixels are not varied.
     let stickerImage: StickerImage?
+
+    /// Shade copied unchanged. A silhouette is not varied.
+    let shade: InteriorShade?
+
+    /// Silhouette used when `shade` is set.
+    let stablePath: SwiftUI.Path
     
     /// Number of animation steps.
     var stepCount: Int { pathVariance.stepCount }
@@ -691,6 +703,8 @@ struct PrecomputedCommandVariance {
         self.maskOpacity = command.maskOpacity
         self.opacityMaskBlur = command.opacityMaskBlur
         self.stickerImage = command.stickerImage
+        self.shade = command.shade
+        self.stablePath = command.path
     }
     
     /// Builds the command for a specific animation step.
@@ -698,6 +712,9 @@ struct PrecomputedCommandVariance {
     /// - Parameter step: The animation step.
     /// - Returns: The command with variance applied for this step.
     mutating func buildCommand(forStep step: Int) -> RoughRenderCommand {
+        if let shade {
+            return RoughRenderCommand(path: stablePath, style: style, shade: shade)
+        }
         let variedPath = pathVariance.buildPath(forStep: step)
         let variedClipPath = clipPathVariance?.buildPath(forStep: step)
         

@@ -627,6 +627,63 @@ RoughView()
     .circle()
 ```
 
+### Pit shade
+
+An inner shadow and a vertical recess stay inside the shape. The sketch is unchanged, and a hole would stay empty.
+
+![Pit shade](images/fills/pit-shade.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.76, green: 0.32, blue: 0.28))
+    .fillStyle(.solid)
+    .stroke(Color.white)
+    .strokeWidth(5)
+    .roughness(0.4)
+    .seed(11)
+    .interiorShades([.pitShadow, .pitRecess])
+    .circle()
+```
+
+### Contour fill
+
+Strokes follow an arc below the circle. Curvature eases from the crest toward a gentler bow.
+
+![Contour fill](images/fills/contour-dome.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+    .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+    .fillWeight(2.4)
+    .fillSpacing(3.2)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(19)
+    .circle()
+```
+
+### Sky wash
+
+Separate crayon strokes at -20°, with two width passes, end trim, and a small sine bow.
+
+![Sky wash](images/fills/sky-wash.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.18, green: 0.46, blue: 0.67))
+    .fillStyle(.wash)
+    .fillAngle(-20)
+    .washPasses(WashPass.sky(scale: 0.18))
+    .brushProfile(.crayon)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(19)
+    .rectangle()
+```
+
 ## Strokes
 
 Width, colour, opacity, and several lines in one view. Each outline is drawn as two offset passes.

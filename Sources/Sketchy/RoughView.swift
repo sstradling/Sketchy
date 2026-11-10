@@ -46,8 +46,14 @@ public struct RoughView: View {
                     let renderSize = canvasSize == .zero ? size : canvasSize
                     guard renderSize.width > 0, renderSize.height > 0 else { return }
 
-                    // Use cached generator (avoids JS bridge call if size unchanged)
-                    let generator = Engine.shared.generator(size: renderSize)
+                    // A moving contour field changes every frame. Skip the drawing
+                    // cache so those frames do not evict still drawings.
+                    let generator: NativeGenerator
+                    if let drift = options.contourDrift, drift.speed > 0 {
+                        generator = NativeGenerator(size: renderSize, drawingCache: nil)
+                    } else {
+                        generator = Engine.shared.generator(size: renderSize)
+                    }
 
                     for drawable in drawables {
                         // Check if we have a spacing pattern for gradient effects
@@ -313,6 +319,86 @@ public extension RoughView {
         var v = self
         v.options.fillStyle = value
         return v
+    }
+
+    /// Guide curve for a `.contour` fill. The shape clips the strokes.
+    ///
+    /// Use the same guide for several shapes when they should share one ground
+    /// contour. A `nil` guide is not stored here; leave `contourGuide` unset
+    /// for straight strokes at `fillAngle`.
+    func contourGuide(_ guide: ContourGuide) -> Self {
+        var v = self
+        v.options.contourGuide = guide
+        return v
+    }
+
+    /// How strongly contour strokes follow the guide.
+    ///
+    /// `0` is a straight chord. `1` follows the guide. Larger values bow past it.
+    /// This clears a previous start/end graduation.
+    func contourIntensity(_ value: Float) -> Self {
+        var v = self
+        v.options.contourIntensity = value
+        v.options.contourIntensityStart = nil
+        v.options.contourIntensityEnd = nil
+        return v
+    }
+
+    /// Ramps contour curvature across the shape.
+    ///
+    /// `angle` is clockwise from the +x axis because y points down. `0` puts
+    /// `start` on the left and `end` on the right. `90` puts `start` at the top.
+    /// The intensity is evaluated at each sample, so one stroke can change bow
+    /// from one side to the other.
+    func contourIntensity(
+        from start: Float,
+        to end: Float,
+        angle: Float = 90,
+        easing: ContourEasing = .linear
+    ) -> Self {
+        var v = self
+        v.options.contourIntensityStart = start
+        v.options.contourIntensityEnd = end
+        v.options.contourGradientAngle = angle
+        v.options.contourEasing = easing
+        return v
+    }
+
+    /// Shrinks contour spacing and stroke width toward the guide.
+    ///
+    /// `0` is uniform. `1` is the strongest falloff. Values clamp to `0...1`.
+    func contourFalloff(_ value: Float) -> Self {
+        var v = self
+        v.options.contourFalloff = min(1, max(0, value))
+        return v
+    }
+
+    /// Pins a contour field at `phase` points along `angle`.
+    ///
+    /// `speed` is points per second. `0` keeps this frame still and cacheable.
+    /// Use `animatedContour(angle:speed:)` to advance the phase over time.
+    func contourDrift(angle: Float, speed: Float, phase: Float = 0) -> Self {
+        var v = self
+        v.options.contourDrift = ContourDrift(speed: speed, angle: angle, phase: phase)
+        return v
+    }
+
+    /// Crayon-wash bands. `.wash` uses `WashPass.sky` when this is nil.
+    ///
+    /// On `.contour`, the bands trim and bow each contour stroke and set its width.
+    /// The base direction is `fillAngle`.
+    func washPasses(_ passes: [WashPass]?) -> Self {
+        var v = self
+        v.options.washPasses = passes
+        return v
+    }
+
+    /// Scrolls a contour fill along `angle` at `speed` points per second.
+    ///
+    /// The stroke wobble stays with each seeded slot and the field wraps.
+    /// The outline is not re-rolled. Playback does not use the drawing cache.
+    func animatedContour(angle: Float, speed: Float) -> ContourDriftView {
+        ContourDriftView(base: self, angle: angle, speed: speed)
     }
     
     // MARK: - Scribble Fill Modifiers
@@ -805,6 +891,23 @@ public extension RoughView {
         ))
     }
     
+    /// Replaces the interior shades. An empty list draws none.
+    ///
+    /// Clipped shades paint after the fill and before the stroke. A halo
+    /// paints after the stroke. The sketch itself is unchanged.
+    func interiorShades(_ shades: [InteriorShade]) -> Self {
+        var v = self
+        v.options.interiorShades = shades
+        return v
+    }
+
+    /// Appends one interior shade, after any already set.
+    func interiorShade(_ shade: InteriorShade) -> Self {
+        var v = self
+        v.options.interiorShades.append(shade)
+        return v
+    }
+
     // MARK: - Animation
     
     /// Wraps this RoughView in an AnimatedRoughView with the given configuration.
