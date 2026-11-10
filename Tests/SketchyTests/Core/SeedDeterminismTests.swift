@@ -34,7 +34,7 @@ final class SeedDeterminismTests: XCTestCase {
 
     func testSeededHachureDotsAndSolidMatchAcrossCalls() {
         let square: [[Float]] = [[0, 0], [120, 0], [120, 90], [0, 90]]
-        for style in [FillStyle.hachure, .dots, .solid, .dashed, .zigzag, .crossHatch, .zigzagLine] {
+        for style in [FillStyle.hachure, .dots, .solid, .dashed, .zigzag, .crossHatch, .zigzagLine, .contour] {
             var options = seededOptions()
             options.fillStyle = style
             let filler = FillPatternFactory.filler(for: style)

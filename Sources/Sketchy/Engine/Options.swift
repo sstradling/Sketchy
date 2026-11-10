@@ -109,6 +109,47 @@ public struct Options: Equatable, Hashable {
     public var dashGap: Float = -1
     public var zigzagOffset: Float = -1
 
+    /// Guide curve for `.contour`. `nil` draws straight strokes at `fillAngle`.
+    ///
+    /// The guide is in the same coordinates as the shape. It is not moved by
+    /// `fillPadding` or `fillOffset`; those only change the clipped region.
+    public var contourGuide: ContourGuide? = nil
+
+    /// How strongly a contour stroke follows the guide.
+    ///
+    /// `0` is a straight chord across the shape. `1` uses the guide's bow at
+    /// that same full width. Lower values flatten the bow (a larger radius).
+    /// They do not shrink the stroke onto a tighter circle. Values above `1`
+    /// exaggerate the bow. Ignored when both start and end intensities are set.
+    public var contourIntensity: Float = 1
+
+    /// Curvature at the low end of `contourGradientAngle`. `nil` uses `contourIntensity`.
+    public var contourIntensityStart: Float? = nil
+
+    /// Curvature at the high end of `contourGradientAngle`. `nil` uses `contourIntensity`.
+    public var contourIntensityEnd: Float? = nil
+
+    /// Direction the contour intensity ramps, in degrees.
+    ///
+    /// `0` runs left to right and `90` runs top to bottom, because y points down.
+    /// Start intensity is at the minimum projection and end intensity at the maximum.
+    public var contourGradientAngle: Float = 90
+
+    /// Easing of `contourIntensityStart` toward `contourIntensityEnd`.
+    public var contourEasing: ContourEasing = .linear
+
+    /// How much contour spacing and stroke width shrink toward the guide.
+    ///
+    /// `0` is uniform. `1` packs and thins strokes on the guide side, down to
+    /// about 22% of the far-side spacing and width. Clamped to `0...1`.
+    public var contourFalloff: Float = 0
+
+    /// Optional scroll of the contour field. `nil` leaves the field still.
+    ///
+    /// A non-zero `speed` is the live animation. A pinned `phase` with `speed`
+    /// `0` is a still frame and stays in the drawing cache.
+    public var contourDrift: ContourDrift? = nil
+
     /// Selects between sampled-point (legacy) and continuous-Bezier stroke
     /// generation for native curved shapes (circle, ellipse, arc, egg,
     /// rounded-rectangle corners, polygons, lines).
@@ -268,6 +309,14 @@ public struct Options: Equatable, Hashable {
         hasher.combine(dashOffset)
         hasher.combine(dashGap)
         hasher.combine(zigzagOffset)
+        hasher.combine(contourGuide)
+        hasher.combine(contourIntensity)
+        hasher.combine(contourIntensityStart)
+        hasher.combine(contourIntensityEnd)
+        hasher.combine(contourGradientAngle)
+        hasher.combine(contourEasing)
+        hasher.combine(contourFalloff)
+        hasher.combine(contourDrift)
         hasher.combine(scribbleOrigin)
         hasher.combine(scribbleTightness)
         hasher.combine(scribbleCurvature)

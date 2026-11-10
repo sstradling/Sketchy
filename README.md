@@ -76,7 +76,7 @@ RoughView()
 
 ### Fills
 
-`.sunBurst` draws rays from the center. `.starBurst` uses the same filler. Other styles are `.hachure`, `.solid`, `.zigzag`, `.crossHatch`, `.dots`, `.dashed`, `.zigzagLine`, and `.scribble`.
+`.sunBurst` draws rays from the center. `.starBurst` uses the same filler. Other styles are `.hachure`, `.solid`, `.zigzag`, `.crossHatch`, `.dots`, `.dashed`, `.zigzagLine`, `.scribble`, `.watercolor`, and `.contour`.
 
 ![Sunburst](docs/images/fills/sunburst.png)
 
@@ -389,6 +389,24 @@ let outline = NativeStrokeOutline.path(
 | `.scribbleTightnessPattern` | none | Density bands, such as `[6, 24, 8, 28]` |
 
 SVG paths and native polygons clip the scribble to the padded fill, so a concave outline cannot leak across notches. Rectangles, circles, and ellipses are not clipped.
+
+### Contour
+
+`.fillStyle(.contour)` bends each fill stroke along a guide. `.contourIntensity(0)` is straight, `1` follows the guide, and higher values exaggerate the bow. `.contourIntensity(from:to:angle:easing:)` ramps that bow across the shape (`90` is top to bottom). `.contourGuide` takes an arc or a polyline in the shape's coordinates, so a lake can reuse the ground's arc. `.contourFalloff` packs and thins strokes toward the guide. `.animatedContour(angle:speed:)` scrolls the field in points per second without re-rolling the wobble.
+
+```swift
+RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+    .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+    .fillWeight(2.4)
+    .fillSpacing(3.2)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(19)
+    .circle()
+```
 
 ### SVG paths
 

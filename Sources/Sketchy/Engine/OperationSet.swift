@@ -17,6 +17,26 @@ public struct OperationSet {
     public let path: String?
     public let size: Size?
 
+    /// Multiplier on the fill line width for this set.
+    ///
+    /// Contour falloff groups strokes into bands and stores the band's scale
+    /// here. `nil` draws at the normal fill weight.
+    public let fillLineScale: Float?
+
+    public init(
+        type: OperationSetType,
+        operations: [Operation],
+        path: String?,
+        size: Size?,
+        fillLineScale: Float? = nil
+    ) {
+        self.type = type
+        self.operations = operations
+        self.path = path
+        self.size = size
+        self.fillLineScale = fillLineScale
+    }
+
     static func from(dictionary: JSONDictionary) -> OperationSet? {
         guard
             let rawType = dictionary["type"] as? String,

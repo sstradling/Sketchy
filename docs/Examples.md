@@ -627,6 +627,26 @@ RoughView()
     .circle()
 ```
 
+### Contour fill
+
+Strokes follow an arc below the circle. Curvature eases from the crest toward a gentler bow.
+
+![Contour fill](images/fills/contour-dome.png)
+
+```swift
+RoughView()
+    .fill(Color(red: 0.22, green: 0.48, blue: 0.34))
+    .fillStyle(.contour)
+    .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+    .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+    .fillWeight(2.4)
+    .fillSpacing(3.2)
+    .stroke(Color(red: 0.12, green: 0.14, blue: 0.18))
+    .strokeWidth(2)
+    .seed(19)
+    .circle()
+```
+
 ## Strokes
 
 Width, colour, opacity, and several lines in one view. Each outline is drawn as two offset passes.

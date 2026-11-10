@@ -583,6 +583,37 @@ extension DocExampleCatalog {
                 .strokeWidth(2)
                 .seed(93)
                 .circle()
+        },
+        still(
+            "contour-dome",
+            section: "Fills",
+            title: "Contour fill",
+            description: "Strokes follow an arc below the circle. Curvature eases from the crest toward a gentler bow.",
+            snippet: """
+            RoughView()
+                .fill(\(leaf.snippet))
+                .fillStyle(.contour)
+                .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+                .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+                .fillWeight(2.4)
+                .fillSpacing(3.2)
+                .stroke(\(charcoal.snippet))
+                .strokeWidth(2)
+                .seed(19)
+                .circle()
+            """
+        ) {
+            RoughView()
+                .fill(leaf.color)
+                .fillStyle(.contour)
+                .contourGuide(.arc(center: ContourPoint(x: 120, y: 340), radius: 260))
+                .contourIntensity(from: 1, to: 0.45, angle: 90, easing: .easeInOut)
+                .fillWeight(2.4)
+                .fillSpacing(3.2)
+                .stroke(charcoal.color)
+                .strokeWidth(2)
+                .seed(19)
+                .circle()
         }
     ]
 }

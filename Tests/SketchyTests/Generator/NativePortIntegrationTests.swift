@@ -84,7 +84,7 @@ final class NativePortIntegrationTests: XCTestCase {
         let gen = engine.generator(size: CGSize(width: 200, height: 200))
         let drawable = Rectangle(x: 10, y: 10, width: 100, height: 80)
         
-        let fillStyles: [Sketchy.FillStyle] = [.hachure, .solid, .zigzag, .crossHatch, .dots, .dashed, .sunBurst, .starBurst]
+        let fillStyles: [Sketchy.FillStyle] = [.hachure, .solid, .zigzag, .crossHatch, .dots, .dashed, .sunBurst, .starBurst, .contour]
         
         for style in fillStyles {
             var options = Options()
