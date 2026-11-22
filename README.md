@@ -23,16 +23,6 @@ import SwiftUI
 import Sketchy
 ```
 
-## Renamed from RoughSwiftUI
-
-The package, library product, and module were renamed to Sketchy in 1.2.0. Public type names did not change.
-
-1. Point the package URL at `https://github.com/sstradling/Sketchy` and require `1.2.0`.
-2. Depend on `.product(name: "Sketchy", package: "Sketchy")`.
-3. Replace `import RoughSwiftUI` with `import Sketchy`.
-
-`RoughView`, `RoughText`, `AnimatedRoughView`, and the other public types keep their names.
-
 ## Quick start
 
 Give the view a frame. `.seed(42)` keeps the wobble stable across redraws. Hachure at 45° is the default fill angle.
