@@ -29,9 +29,20 @@ The package is iOS 17+ (`Package.swift`). Tests run on an iPhone simulator. Do n
 | `Tests/SketchyTests/` | Unit tests. Docs catalog is under `Docs/` |
 | `Tests/SketchyTests/Docs/DocExampleCatalog.swift` | Paper colour, tile size, and the example list |
 | `scripts/render-docs.sh` | Renders the catalog into `docs/images` and `docs/Examples.md` |
+| `scripts/render-header.sh` | Renders the README wordmark, `docs/images/header.gif`, from `Tests/SketchyTests/Docs/HeaderBanner*.swift` |
 | `.github/workflows/tests.yml` | CI test job |
 
-`Example/SketchyDemo` is the sample app. Open `Example/SketchyDemo/SketchyDemoApp.xcodeproj` and run the `SketchyDemoApp` scheme. The bundle id is `com.sstradling.SketchyDemo`, and the target links the local package product `Sketchy`. `DOCUMENTATION.md` is the long API reference. `docs/Examples.md` is generated. `docs/Performance.md` is the cache and signpost notes.
+`Example/SketchyDemo` is the sample app. Open `Example/SketchyDemo/SketchyDemoApp.xcodeproj` and run the `SketchyDemoApp` scheme. The bundle id is `com.sstradling.SketchyDemo`, and the target links the local package product `Sketchy`. `DOCUMENTATION.md` is the long API reference. ### README header GIF
+
+`docs/images/header.gif` is the README wordmark. Sketchy draws it: the leading "S" is a white `StickerBacking` sheet, the "!" is an `AnimatedRoughView` pinned to one step per frame, and the other six letters are static. Regenerate it with:
+
+```bash
+scripts/render-header.sh
+```
+
+Requirements on `PATH`: `gifski`. The script downloads Bungee (OFL) once into `build/header` and checks its SHA-256. Seeds live in `Tests/SketchyTests/Docs/HeaderBannerSpec.swift`, so two runs are byte-identical. `HeaderBannerRenderTests` skips unless `TEST_RUNNER_RENDER_HEADER=1` reaches the test process, which the script sets the same way `render-docs.sh` does. The GIF must stay under 10 MB (target under 1 MB). `scripts/render-docs.sh` keeps `header.gif` and `header.png` when it rebuilds `docs/images`.
+
+`docs/Examples.md` is generated. `docs/Performance.md` is the cache and signpost notes.
 
 ## Tests
 

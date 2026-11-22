@@ -18,9 +18,10 @@
 #   docs/images     <= 10 MB
 # No Git LFS.
 # hero.png is a wide banner. It is published beside the tiles and left out of Examples.md.
-# header.png is the README wordmark from scripts/readme-header. The gallery
-# replace keeps that file. It is wider than a tile, so the 120 KB still cap
-# does not apply. It still counts toward the 10 MB folder budget.
+# header.gif is the README wordmark from scripts/render-header.sh. header.png
+# is the older static wordmark from scripts/readme-header. The gallery replace
+# keeps both files. They are wider than a tile, so the still and GIF caps do
+# not apply. They still count toward the 10 MB folder budget.
 
 set -euo pipefail
 
@@ -393,18 +394,23 @@ for item in plan:
 PY
 
 # Replace the gallery so a removed example does not linger and count against the budget.
-# header.png is the README wordmark, produced by scripts/readme-header.
-header_keep=""
-if [[ -f "$DOCS_IMAGES/header.png" ]]; then
-  header_keep="$(mktemp)"
-  cp "$DOCS_IMAGES/header.png" "$header_keep"
-fi
+# header.gif is the README wordmark (scripts/render-header.sh). header.png is the
+# older static wordmark (scripts/readme-header). Neither comes from the catalog.
+HEADER_FILES=(header.gif header.png)
+header_keep="$(mktemp -d)"
+for name in "${HEADER_FILES[@]}"; do
+  if [[ -f "$DOCS_IMAGES/$name" ]]; then
+    cp "$DOCS_IMAGES/$name" "$header_keep/$name"
+  fi
+done
 rm -rf "$DOCS_IMAGES"
 mkdir -p "$DOCS_IMAGES"
-if [[ -n "$header_keep" ]]; then
-  cp "$header_keep" "$DOCS_IMAGES/header.png"
-  rm -f "$header_keep"
-fi
+for name in "${HEADER_FILES[@]}"; do
+  if [[ -f "$header_keep/$name" ]]; then
+    cp "$header_keep/$name" "$DOCS_IMAGES/$name"
+  fi
+done
+rm -rf "$header_keep"
 
 while IFS=$'\t' read -r kind src dest extra; do
   [[ -z "${kind:-}" ]] && continue
@@ -427,7 +433,7 @@ while IFS= read -r -d '' file; do
   rel="${file#"$ROOT"/}"
   printf '  %s  %s bytes\n' "$rel" "$size"
   case "$file" in
-    "$DOCS_IMAGES/header.png")
+    "$DOCS_IMAGES/header.png"|"$DOCS_IMAGES/header.gif")
       ;;
     *.png)
       if [[ "$size" -gt "$MAX_STILL" ]]; then
