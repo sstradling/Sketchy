@@ -1,4 +1,4 @@
-<h1 align="center"><img src="docs/images/header.png" alt="Sketchy!" width="800"></h1>
+<h1 align="center"><img src="docs/images/header.gif" alt="Sketchy!" width="800"></h1>
 
 ![Hachure, cross-hatch, sunburst, and crayon on one paper card](docs/images/hero.png)
 
@@ -22,16 +22,6 @@ Add the package to your `Package.swift` dependencies and to the target that uses
 import SwiftUI
 import Sketchy
 ```
-
-## Renamed from RoughSwiftUI
-
-The package, library product, and module were renamed to Sketchy in 1.2.0. Public type names did not change.
-
-1. Point the package URL at `https://github.com/sstradling/Sketchy` and require `1.2.0`.
-2. Depend on `.product(name: "Sketchy", package: "Sketchy")`.
-3. Replace `import RoughSwiftUI` with `import Sketchy`.
-
-`RoughView`, `RoughText`, `AnimatedRoughView`, and the other public types keep their names.
 
 ## Quick start
 
