@@ -234,7 +234,7 @@ Presets: `.calligraphic`, `.marker`, `.pen`, `.crayon`, and `.default`.
 
 ### Text
 
-Text is traced to a path and drawn at the font size you set. It is placed in the view. It is not scaled to fill the frame the way an SVG path is. `.leading` and `.top` pin it to a corner. `offsetX` and `offsetY` move it after that. Positive x goes right. Positive y goes down.
+Text is traced to a path and drawn at the font size you set. It is placed in the view. It is not scaled to fill the frame the way an SVG path is. `.leading` and `.top` pin it to a corner. `offsetX` and `offsetY` move it after that. Positive x goes right. Positive y goes down. A solid fill keeps counters open. A letter drawn as overlapping pieces, such as a bowl and a stem, stays filled where those pieces cross.
 
 ![Rough text](docs/images/text/rough-word.png)
 

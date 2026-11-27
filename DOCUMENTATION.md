@@ -809,6 +809,8 @@ RoughView()
 
 Text is drawn at that position and at the font size you set. It is not scaled to fill the frame. An SVG `Path` still is.
 
+A solid fill uses even-odd, so a counter stays open. Some fonts build `b`, `d`, `g`, `p`, and `q` from two contours with the same winding (a bowl overlapping a stem). Those contours are unioned before the fill, so the overlap stays filled. A glyph that does not overlap is left unchanged. A single contour that crosses itself, such as the bar of an `e` in San Francisco, is also left unchanged.
+
 ---
 
 ## Brush Profiles
