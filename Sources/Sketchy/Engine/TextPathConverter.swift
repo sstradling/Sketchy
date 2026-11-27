@@ -57,15 +57,18 @@ public struct TextPathConverter {
                 let glyph = glyphs[i]
                 let position = positions[i]
                 
-                // Get the path for this glyph
+                // Get the path for this glyph. Overlapping same-winding contours
+                // (a bowl and a stem) are unioned so an even-odd fill does not
+                // punch a gap. Other glyphs are returned unchanged.
                 guard let glyphPath = CTFontCreatePathForGlyph(runFont, glyph, nil) else { continue }
+                let outline = GlyphContourResolver.resolve(glyphPath)
                 
                 // Transform: translate to the glyph position relative to baseline origin
                 // CoreText gives positions relative to the line origin (baseline)
-                var transform = CGAffineTransform(translationX: baselineOrigin.x + position.x,
+                let transform = CGAffineTransform(translationX: baselineOrigin.x + position.x,
                                                    y: baselineOrigin.y + position.y)
                 
-                mutablePath.addPath(glyphPath, transform: transform)
+                mutablePath.addPath(outline, transform: transform)
             }
         }
         

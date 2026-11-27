@@ -109,7 +109,7 @@ Also `text(attributedString:horizontalAlignment:verticalAlignment:offsetX:offset
 
 `RoughTextHorizontalAlignment`: `.leading`, `.center`, `.trailing`. `RoughTextVerticalAlignment`: `.top`, `.center`, `.bottom`. Offsets apply after alignment. Positive `offsetX` moves right. Positive `offsetY` moves down.
 
-`RoughText` sizes itself to the glyphs (`init(_:font:)`, `init(attributedString:)`, `init(_:fontName:fontSize:)`). It has the same style modifiers as `RoughView`, including `.seed`. It does not take alignment. Place it with normal SwiftUI layout.
+`RoughText` sizes itself to the glyphs (`init(_:font:)`, `init(attributedString:)`, `init(_:fontName:fontSize:)`). It has the same style modifiers as `RoughView`, including `.seed`. It does not take alignment. Place it with normal SwiftUI layout. Solid fills are even-odd, so counters stay open. A glyph whose same-winding contours overlap (a bowl plus a stem) is unioned first; every other glyph path is unchanged.
 
 ## Brushes
 
